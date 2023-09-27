@@ -322,8 +322,13 @@ class Game:
     def perform_move(self, coords : CoordPair) -> Tuple[bool,str]:
         """Validate and perform a move expressed as a CoordPair. TODO: WRITE MISSING CODE!!!"""
         if self.is_valid_move(coords):
-            self.set(coords.dst,self.get(coords.src))
-            self.set(coords.src,None)
+
+            # Movement: the destination coordinate is not occupied by any unit
+            if self.get(coords.dst) is None:
+                self.set(coords.dst,self.get(coords.src))
+                self.set(coords.src,None)
+                return (True,"move from " + coords.src.to_string() + " to " + coords.dst.to_string())
+
             return (True,"")
         return (False,"invalid move")
 
