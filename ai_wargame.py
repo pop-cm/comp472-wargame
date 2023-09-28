@@ -337,7 +337,12 @@ class Game:
                         total_damage += 2
                 return (True,"self-destruct at " + str(coords.src) + "\n"
                         "self-destructed for " + str(total_damage) + " total damage")
-
+            # Repair: the source and destination belong to the same players
+            elif self.get(coords.src).player == self.get(coords.dst).player:
+                repair_amount = Unit.repair_table[self.get(coords.src).type.value][self.get(coords.dst).type.value]
+                self.mod_health(coords.dst, repair_amount)
+                return (True,"repair from " + str(coords.src) + " to " + str(coords.dst) + "\n"
+                        "repaired " + str(repair_amount) + " health points")
         return (False,"invalid move")
 
     def next_turn(self):
