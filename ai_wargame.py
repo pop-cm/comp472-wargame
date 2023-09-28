@@ -134,7 +134,7 @@ class Coord:
         return copy.copy(self)
 
     def iter_range(self, dist: int) -> Iterable[Coord]:
-        """Iterates over Coords inside a rectangle centered on our Coord."""
+        """Iterates over Coords inside a square centered on our Coord."""
         for row in range(self.row-dist,self.row+1+dist):
             for col in range(self.col-dist,self.col+1+dist):
                 yield Coord(row,col)
@@ -322,14 +322,22 @@ class Game:
     def perform_move(self, coords : CoordPair) -> Tuple[bool,str]:
         """Validate and perform a move expressed as a CoordPair. TODO: WRITE MISSING CODE!!!"""
         if self.is_valid_move(coords):
-
             # Movement: the destination coordinate is not occupied by any unit
             if self.get(coords.dst) is None:
                 self.set(coords.dst,self.get(coords.src))
                 self.set(coords.src,None)
-                return (True,"move from " + coords.src.to_string() + " to " + coords.dst.to_string())
+                return (True,"move from " + str(coords.src) + " to " + str(coords.dst))
+            # Self-destruct: the source and destination coordinates are the same
+            elif coords.src == coords.dst:
+                self.mod_health(coords.src, -9)
+                total_damage = 0
+                for coord in coords.src.iter_range(1):
+                    if self.is_valid_coord(coord) and not self.is_empty(coord):
+                        self.mod_health(coord, -2)
+                        total_damage += 2
+                return (True,"self-destruct at " + str(coords.src) + "\n"
+                        "self-destructed for " + str(total_damage) + " total damage")
 
-            return (True,"")
         return (False,"invalid move")
 
     def next_turn(self):
