@@ -343,6 +343,14 @@ class Game:
                 self.mod_health(coords.dst, repair_amount)
                 return (True,"repair from " + str(coords.src) + " to " + str(coords.dst) + "\n"
                         "repaired " + str(repair_amount) + " health points")
+            # Attack: the source and destination belong to opposing players
+            else:
+                dst_dmg = Unit.damage_table[self.get(coords.src).type.value][self.get(coords.dst).type.value]
+                src_dmg = Unit.damage_table[self.get(coords.dst).type.value][self.get(coords.src).type.value]
+                self.mod_health(coords.dst, -dst_dmg)
+                self.mod_health(coords.src, -src_dmg)
+                return (True, "attack from " + str(coords.src) + " to " + str(coords.dst) +
+                        "\ncombat damage: to source =  " + str(src_dmg) + ", to target = " + str(dst_dmg))
         return (False,"invalid move")
 
     def next_turn(self):
