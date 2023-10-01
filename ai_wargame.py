@@ -134,7 +134,7 @@ class Coord:
         return copy.copy(self)
 
     def iter_range(self, dist: int) -> Iterable[Coord]:
-        """Iterates over Coords inside a rectangle centered on our Coord."""
+        """Iterates over Coords inside a square centered on our Coord."""
         for row in range(self.row-dist,self.row+1+dist):
             for col in range(self.col-dist,self.col+1+dist):
                 yield Coord(row,col)
@@ -309,6 +309,9 @@ class Game:
             target.mod_health(health_delta)
             self.remove_dead(coord)
 
+
+
+
     def is_valid_move(self, coords : CoordPair) -> bool:
         """Validate a move expressed as a CoordPair. TODO: WRITE MISSING CODE!!!"""
         if not self.is_valid_coord(coords.src) or not self.is_valid_coord(coords.dst):
@@ -316,16 +319,93 @@ class Game:
         unit = self.get(coords.src)
         if unit is None or unit.player != self.next_player:
             return False
+        
+
         unit = self.get(coords.dst)
-        return (unit is None)
+        #Check for attacking
+
+        #Check if there is a unit in the destination, and that it is a piece belonging to the turn player
+        if (unit is not None) and (unit.player != self.next_player):
+            #Checks if the pieces are either in the same col but 1 row apart, or if they're in the same row but 1 col apart
+            if ((coords.src.col == coords.dst.col) and (abs(coords.src.row - coords.dst.row) == 1)) or ((coords.src.row == coords.dst.row) and (abs(coords.src.col - coords.dst.col) == 1)):
+                return True
+            
+            else: 
+                return False
+            
+
+        #Check for repairing
+
+        #Checks that there is a unit in the destination, and that it is a piece belonging to the turn player
+        if (unit is not None) and (unit.player == self.next_player):
+            #Checks if they are either in the same col but 1 row apart, of ir they're in the same row but 1 col apart
+            if ((coords.src.col == coords.dst.col) and (abs(coords.src.row - coords.dst.row) == 1)) or ((coords.src.row == coords.dst.row) and (abs(coords.src.col - coords.dst.col) == 1)):
+                if (unit.health == 9):
+                    return False
+                
+                #Checking all valid repair partners based on repair value table
+                if (self.get(coords.src).type == UnitType.AI) and ((unit.type == UnitType.Virus) or (unit.type == UnitType.Tech)):
+                    return True
+                
+                if (self.get(coords.src).type == UnitType.Tech) and ((unit.type == UnitType.AI) or (unit.type == UnitType.Firewall) or (unit.type == UnitType.Program)):
+                    return True
+                
+                return False
+            
+
+            #Not in correct position
+            else: 
+                return False
+
+        
+        if (unit is None):
+            return (unit is None)
+
+
+
 
     def perform_move(self, coords : CoordPair) -> Tuple[bool,str]:
         """Validate and perform a move expressed as a CoordPair. TODO: WRITE MISSING CODE!!!"""
         if self.is_valid_move(coords):
-            self.set(coords.dst,self.get(coords.src))
-            self.set(coords.src,None)
-            return (True,"")
+            # Movement: the destination coordinate is not occupied by any unit
+            if self.get(coords.dst) is None:
+                self.set(coords.dst,self.get(coords.src))
+                self.set(coords.src,None)
+                return (True,"move from " + str(coords.src) + " to " + str(coords.dst))
+            # Self-destruct: the source and destination coordinates are the same
+            elif coords.src == coords.dst:
+                self.mod_health(coords.src, -9)
+                total_damage = 0
+                for coord in coords.src.iter_range(1):
+                    if self.is_valid_coord(coord) and not self.is_empty(coord):
+                        self.mod_health(coord, -2)
+                        total_damage += 2
+                return (True,"self-destruct at " + str(coords.src) + "\n"
+                        "self-destructed for " + str(total_damage) + " total damage")
+            
+
+
+            # Repair: the source and destination belong to the same players
+            elif self.get(coords.src).player == self.get(coords.dst).player:
+                repair_amount = Unit.repair_table[self.get(coords.src).type.value][self.get(coords.dst).type.value]
+                self.mod_health(coords.dst, repair_amount)
+                return (True,"repair from " + str(coords.src) + " to " + str(coords.dst) + "\n"
+                        "repaired " + str(repair_amount) + " health points")
+            
+
+
+            # Attack: the source and destination belong to opposing players
+            else:
+                dst_dmg = Unit.damage_table[self.get(coords.src).type.value][self.get(coords.dst).type.value]
+                src_dmg = Unit.damage_table[self.get(coords.dst).type.value][self.get(coords.src).type.value]
+                self.mod_health(coords.dst, -dst_dmg)
+                self.mod_health(coords.src, -src_dmg)
+                return (True, "attack from " + str(coords.src) + " to " + str(coords.dst) +
+                        "\ncombat damage: to source =  " + str(src_dmg) + ", to target = " + str(dst_dmg))
         return (False,"invalid move")
+
+
+
 
     def next_turn(self):
         """Transitions game to the next turn."""
@@ -380,6 +460,8 @@ class Game:
             else:
                 print('Invalid coordinates! Try again.')
 
+
+
     def human_turn(self):
         """Human player plays a move (or get via broker)."""
         if self.options.broker is not None:
@@ -405,6 +487,9 @@ class Game:
                     break
                 else:
                     print("The move is not valid! Try again.")
+
+
+
 
     def computer_turn(self) -> CoordPair | None:
         """Computer plays a move."""
