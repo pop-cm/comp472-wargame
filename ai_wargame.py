@@ -309,7 +309,7 @@ class Game:
             target.mod_health(health_delta)
             self.remove_dead(coord)
 
-    def is_valid_move(self, coords : CoordPair) -> bool:
+     def is_valid_move(self, coords : CoordPair) -> bool:
         """Validate a move expressed as a CoordPair. TODO: WRITE MISSING CODE!!!""" #######################################################################
         if not self.is_valid_coord(coords.src) or not self.is_valid_coord(coords.dst):
             return False
@@ -317,14 +317,53 @@ class Game:
         if unit is None or unit.player != self.next_player:
             return False
         unit = self.get(coords.dst)
+
+        # Check self-destruct
+        # Check if the source and destination coordinates are the same
+        if coords.src == coords.dst:
+            return True
         
-        # Movement
+        #Check for attacking
+        #Check if there is a unit in the destination, and that it is a piece belonging to the turn player
+        if (unit is not None) and (unit.player != self.next_player):
+            #Checks if the pieces are either in the same col but 1 row apart, or if they're in the same row but 1 col apart
+            if ((coords.src.col == coords.dst.col) and (abs(coords.src.row - coords.dst.row) == 1)) or ((coords.src.row == coords.dst.row) and (abs(coords.src.col - coords.dst.col) == 1)):
+                return True
+            
+            else: 
+                return False
+            
+        #Check for repairing
+        #Checks that there is a unit in the destination, and that it is a piece belonging to the turn player
+        if (unit is not None) and (unit.player == self.next_player):
+            #Checks if they are either in the same col but 1 row apart, of ir they're in the same row but 1 col apart
+            if ((coords.src.col == coords.dst.col) and (abs(coords.src.row - coords.dst.row) == 1)) or ((coords.src.row == coords.dst.row) and (abs(coords.src.col - coords.dst.col) == 1)):
+                if (unit.health == 9):
+                    return False
+                
+                #Checking all valid repair partners based on repair value table
+                if (self.get(coords.src).type == UnitType.AI) and ((unit.type == UnitType.Virus) or (unit.type == UnitType.Tech)):
+                    return True
+                
+                if (self.get(coords.src).type == UnitType.Tech) and ((unit.type == UnitType.AI) or (unit.type == UnitType.Firewall) or (unit.type == UnitType.Program)):
+                    return True
+                
+                return False
+            
+            #Not in correct position
+            else: 
+                return False
+
+        # Check general movement
         # Defender can move a Program, Firewall or AI unit down or right
         if((self.get(coords.src).player == Player.Defender) and (self.get(coords.src).type == UnitType.AI or self.get(coords.src).type == UnitType.Firewall or self.get(coords.src).type == UnitType.Program)):
-            for coord in coords.src.iter_adjacent():
-                if (not self.is_empty(coord) and (self.get(coord).player != self.next_player)):
-                    return False
             
+            # Check if unit is engaged in combat
+            for coord in coords.src.iter_adjacent():
+                if (self.is_valid_coord(coord) and not self.is_empty(coord) and self.get(coord).player != self.next_player):
+                    return False
+           
+            # Check if unit is moving down
             if(str(coords.src)[0] == 'E' and (str(coords.dst)[0] != 'E')):
                 return False
             elif (str(coords.src)[0] == 'D' and (str(coords.dst)[0] == 'A' or str(coords.dst)[0] == 'B' or str(coords.dst)[0] == 'C')):
@@ -336,6 +375,7 @@ class Game:
             elif (str(coords.src)[0] == 'A' and (str(coords.dst)[0] == 'C' or str(coords.dst)[0] == 'D' or str(coords.dst)[0] == 'E')):
                 return False
             
+            # Check if unit is moving right
             if(str(coords.src)[1] == '4' and (str(coords.dst)[1] != '4')):
                 return False
             elif (str(coords.src)[1] == '3' and (str(coords.dst)[1] == '0' or str(coords.dst)[1] == '1' or str(coords.dst)[1] == '2')):
@@ -349,10 +389,13 @@ class Game:
 
         # Attacker can move a Program, Firewall or AI unit up or left
         if((self.get(coords.src).player == Player.Attacker) and (self.get(coords.src).type == UnitType.AI or self.get(coords.src).type == UnitType.Firewall or self.get(coords.src).type == UnitType.Program)):
+            
+            # Check if unit is engaged in combat
             for coord in coords.src.iter_adjacent():
-                if (not self.is_empty(coord) and (self.get(coord).player != self.next_player)):
+                if (self.is_valid_coord(coord) and not self.is_empty(coord) and (self.get(coord).player != self.next_player)):
                     return False
             
+            # Check if unit is moving up
             if(str(coords.src)[0] == 'E' and (str(coords.dst)[0] == 'A' or str(coords.dst)[0] == 'B' or str(coords.dst)[0] == 'C')):
                 return False
             elif (str(coords.src)[0] == 'D' and (str(coords.dst)[0] == 'A' or str(coords.dst)[0] == 'B' or str(coords.dst)[0] == 'E')):
@@ -364,6 +407,7 @@ class Game:
             elif (str(coords.src)[0] == 'A' and (str(coords.dst)[0] != 'A')):
                 return False
             
+            # Check if unit is moving left
             if(str(coords.src)[1] == '4' and (str(coords.dst)[1] == '2' or str(coords.dst)[1] == '1' or str(coords.dst)[1] == '0')):
                 return False
             elif (str(coords.src)[1] == '3' and (str(coords.dst)[1] == '4' or str(coords.dst)[1] == '1' or str(coords.dst)[1] == '0')):
@@ -379,10 +423,6 @@ class Game:
         # Attacker can move a Virus unit in any direction (except diagonally) at any time
         if((str(coords.src)[0] != str(coords.dst)[0]) and str(coords.src)[1] != str(coords.dst)[1]):
             return False
-
-        # Self-destruct: the source and destination coordinates are the same
-        if coords.src == coords.dst:
-            return True
     
         return (unit is None)
 
