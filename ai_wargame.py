@@ -321,6 +321,10 @@ class Game:
         # Movement
         # Defender can move a Program, Firewall or AI unit down or right
         if((self.get(coords.src).player == Player.Defender) and (self.get(coords.src).type == UnitType.AI or self.get(coords.src).type == UnitType.Firewall or self.get(coords.src).type == UnitType.Program)):
+            for coord in coords.src.iter_adjacent():
+                if (not self.is_empty(coord) and (self.get(coord).player != self.next_player)):
+                    return False
+            
             if(str(coords.src)[0] == 'E' and (str(coords.dst)[0] != 'E')):
                 return False
             elif (str(coords.src)[0] == 'D' and (str(coords.dst)[0] == 'A' or str(coords.dst)[0] == 'B' or str(coords.dst)[0] == 'C')):
@@ -345,6 +349,10 @@ class Game:
 
         # Attacker can move a Program, Firewall or AI unit up or left
         if((self.get(coords.src).player == Player.Attacker) and (self.get(coords.src).type == UnitType.AI or self.get(coords.src).type == UnitType.Firewall or self.get(coords.src).type == UnitType.Program)):
+            for coord in coords.src.iter_adjacent():
+                if (not self.is_empty(coord) and (self.get(coord).player != self.next_player)):
+                    return False
+            
             if(str(coords.src)[0] == 'E' and (str(coords.dst)[0] == 'A' or str(coords.dst)[0] == 'B' or str(coords.dst)[0] == 'C')):
                 return False
             elif (str(coords.src)[0] == 'D' and (str(coords.dst)[0] == 'A' or str(coords.dst)[0] == 'B' or str(coords.dst)[0] == 'E')):
