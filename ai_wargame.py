@@ -9,6 +9,18 @@ from typing import Tuple, TypeVar, Type, Iterable, ClassVar
 import random
 import requests
 
+
+#File to write to
+file_path = "gameTrace-True-5-100.txt"
+file = open(file_path, "w")
+
+#write parameters, hardcoded but should change
+file.write("Game parameters\n")
+file.write("The value of the timeout is 5s\n")
+file.write("The max number of turns is 100\n")
+file.write("The alpha-beta is on\n")
+file.write("Play mode is H VS H\n")
+
 # maximum and minimum values for our heuristic scores (usually represents an end of game condition)
 MAX_HEURISTIC_SCORE = 2000000000
 MIN_HEURISTIC_SCORE = -2000000000
@@ -80,11 +92,11 @@ class Unit:
         p = self.player.name.lower()[0]
         t = self.type.name.upper()[0]
         return f"{p}{t}{self.health}"
-
+    
     def __str__(self) -> str:
         """Text representation of this unit."""
         return self.to_string()
-
+    
     def damage_amount(self, target: Unit) -> int:
         """How much can this unit damage another unit."""
         amount = self.damage_table[self.type.value][target.type.value]
@@ -124,11 +136,11 @@ class Coord:
     def to_string(self) -> str:
         """Text representation of this Coord."""
         return self.row_string()+self.col_string()
-
+    
     def __str__(self) -> str:
         """Text representation of this Coord."""
         return self.to_string()
-
+    
     def clone(self) -> Coord:
         """Clone a Coord."""
         return copy.copy(self)
@@ -171,7 +183,7 @@ class CoordPair:
     def to_string(self) -> str:
         """Text representation of a CoordPair."""
         return self.src.to_string()+" "+self.dst.to_string()
-
+    
     def __str__(self) -> str:
         """Text representation of a CoordPair."""
         return self.to_string()
@@ -190,12 +202,12 @@ class CoordPair:
     def from_quad(cls, row0: int, col0: int, row1: int, col1: int) -> CoordPair:
         """Create a CoordPair from 4 integers."""
         return CoordPair(Coord(row0,col0),Coord(row1,col1))
-
+    
     @classmethod
     def from_dim(cls, dim: int) -> CoordPair:
         """Create a CoordPair based on a dim-sized rectangle."""
         return CoordPair(Coord(0,0),Coord(dim-1,dim-1))
-
+    
     @classmethod
     def from_string(cls, s : str) -> CoordPair | None:
         """Create a CoordPair from a string. ex: A3 B2"""
@@ -310,21 +322,160 @@ class Game:
             self.remove_dead(coord)
 
     def is_valid_move(self, coords : CoordPair) -> bool:
-        """Validate a move expressed as a CoordPair. TODO: WRITE MISSING CODE!!!"""
+        """Validate a move expressed as a CoordPair. TODO: WRITE MISSING CODE!!!""" #######################################################################
         if not self.is_valid_coord(coords.src) or not self.is_valid_coord(coords.dst):
             return False
         unit = self.get(coords.src)
         if unit is None or unit.player != self.next_player:
             return False
         unit = self.get(coords.dst)
+
+        # Check self-destruct
+        # Check if the source and destination coordinates are the same
+        if coords.src == coords.dst:
+            return True
+        
+        #Check for attacking
+        #Check if there is a unit in the destination, and that it is a piece belonging to the turn player
+        if (unit is not None) and (unit.player != self.next_player):
+            #Checks if the pieces are either in the same col but 1 row apart, or if they're in the same row but 1 col apart
+            if ((coords.src.col == coords.dst.col) and (abs(coords.src.row - coords.dst.row) == 1)) or ((coords.src.row == coords.dst.row) and (abs(coords.src.col - coords.dst.col) == 1)):
+                return True
+            
+            else: 
+                return False
+            
+        #Check for repairing
+        #Checks that there is a unit in the destination, and that it is a piece belonging to the turn player
+        if (unit is not None) and (unit.player == self.next_player):
+            #Checks if they are either in the same col but 1 row apart, of ir they're in the same row but 1 col apart
+            if ((coords.src.col == coords.dst.col) and (abs(coords.src.row - coords.dst.row) == 1)) or ((coords.src.row == coords.dst.row) and (abs(coords.src.col - coords.dst.col) == 1)):
+                if (unit.health == 9):
+                    return False
+                
+                #Checking all valid repair partners based on repair value table
+                if (self.get(coords.src).type == UnitType.AI) and ((unit.type == UnitType.Virus) or (unit.type == UnitType.Tech)):
+                    return True
+                
+                if (self.get(coords.src).type == UnitType.Tech) and ((unit.type == UnitType.AI) or (unit.type == UnitType.Firewall) or (unit.type == UnitType.Program)):
+                    return True
+                
+                return False
+            
+            #Not in correct position
+            else: 
+                return False
+
+        # Check general movement
+        # Defender can move a Program, Firewall or AI unit down or right
+        if((self.get(coords.src).player == Player.Defender) and (self.get(coords.src).type == UnitType.AI or self.get(coords.src).type == UnitType.Firewall or self.get(coords.src).type == UnitType.Program)):
+            
+            # Check if unit is engaged in combat
+            for coord in coords.src.iter_adjacent():
+                if (self.is_valid_coord(coord) and not self.is_empty(coord) and self.get(coord).player != self.next_player):
+                    return False
+           
+            # Check if unit is moving down
+            if(str(coords.src)[0] == 'E' and (str(coords.dst)[0] != 'E')):
+                return False
+            elif (str(coords.src)[0] == 'D' and (str(coords.dst)[0] == 'A' or str(coords.dst)[0] == 'B' or str(coords.dst)[0] == 'C')):
+                return False
+            elif (str(coords.src)[0] == 'C' and (str(coords.dst)[0] == 'A' or str(coords.dst)[0] == 'B' or str(coords.dst)[0] == 'E')):
+                return False
+            elif (str(coords.src)[0] == 'B' and (str(coords.dst)[0] == 'A' or str(coords.dst)[0] == 'D' or str(coords.dst)[0] == 'E')):
+                return False
+            elif (str(coords.src)[0] == 'A' and (str(coords.dst)[0] == 'C' or str(coords.dst)[0] == 'D' or str(coords.dst)[0] == 'E')):
+                return False
+            
+            # Check if unit is moving right
+            if(str(coords.src)[1] == '4' and (str(coords.dst)[1] != '4')):
+                return False
+            elif (str(coords.src)[1] == '3' and (str(coords.dst)[1] == '0' or str(coords.dst)[1] == '1' or str(coords.dst)[1] == '2')):
+                return False
+            elif (str(coords.src)[1] == '2' and (str(coords.dst)[1] == '0' or str(coords.dst)[1] == '1' or str(coords.dst)[1] == '4')):
+                return False
+            elif (str(coords.src)[1] == '1' and (str(coords.dst)[1] == '0' or str(coords.dst)[1] == '3' or str(coords.dst)[1] == '4')):
+                return False
+            elif(str(coords.src)[1] == '0' and (str(coords.dst)[1] == '2' or str(coords.dst)[1] == '3' or str(coords.dst)[1] == '4')):
+                return False
+
+        # Attacker can move a Program, Firewall or AI unit up or left
+        if((self.get(coords.src).player == Player.Attacker) and (self.get(coords.src).type == UnitType.AI or self.get(coords.src).type == UnitType.Firewall or self.get(coords.src).type == UnitType.Program)):
+            
+            # Check if unit is engaged in combat
+            for coord in coords.src.iter_adjacent():
+                if (self.is_valid_coord(coord) and not self.is_empty(coord) and (self.get(coord).player != self.next_player)):
+                    return False
+            
+            # Check if unit is moving up
+            if(str(coords.src)[0] == 'E' and (str(coords.dst)[0] == 'A' or str(coords.dst)[0] == 'B' or str(coords.dst)[0] == 'C')):
+                return False
+            elif (str(coords.src)[0] == 'D' and (str(coords.dst)[0] == 'A' or str(coords.dst)[0] == 'B' or str(coords.dst)[0] == 'E')):
+                return False
+            elif (str(coords.src)[0] == 'C' and (str(coords.dst)[0] == 'A' or str(coords.dst)[0] == 'D' or str(coords.dst)[0] == 'E')):
+                return False
+            elif (str(coords.src)[0] == 'B' and (str(coords.dst)[0] == 'C' or str(coords.dst)[0] == 'D' or str(coords.dst)[0] == 'E')):
+                return False
+            elif (str(coords.src)[0] == 'A' and (str(coords.dst)[0] != 'A')):
+                return False
+            
+            # Check if unit is moving left
+            if(str(coords.src)[1] == '4' and (str(coords.dst)[1] == '2' or str(coords.dst)[1] == '1' or str(coords.dst)[1] == '0')):
+                return False
+            elif (str(coords.src)[1] == '3' and (str(coords.dst)[1] == '4' or str(coords.dst)[1] == '1' or str(coords.dst)[1] == '0')):
+                return False
+            elif (str(coords.src)[1] == '2' and (str(coords.dst)[1] == '4' or str(coords.dst)[1] == '3' or str(coords.dst)[1] == '0')):
+                return False
+            elif (str(coords.src)[1] == '1' and (str(coords.dst)[1] == '4' or str(coords.dst)[1] == '3' or str(coords.dst)[1] == '2')):
+                return False
+            elif (str(coords.src)[1] == '0' and (str(coords.dst)[1] != '0')):
+                return False
+
+        # Defender can move a Tech unit in any direction (except diagonally) at any time
+        # Attacker can move a Virus unit in any direction (except diagonally) at any time
+        if((str(coords.src)[0] != str(coords.dst)[0]) and str(coords.src)[1] != str(coords.dst)[1]):
+            return False
+    
         return (unit is None)
 
     def perform_move(self, coords : CoordPair) -> Tuple[bool,str]:
-        """Validate and perform a move expressed as a CoordPair. TODO: WRITE MISSING CODE!!!"""
         if self.is_valid_move(coords):
-            self.set(coords.dst,self.get(coords.src))
-            self.set(coords.src,None)
-            return (True,"")
+            # Movement: the destination coordinate is not occupied by any unit
+            if self.get(coords.dst) is None:
+                self.set(coords.dst,self.get(coords.src))
+                self.set(coords.src,None)
+                file.write("Player " + str(self.next_player.name) + " move from " + str(coords.src) + " to " + str(coords.dst) + "\n")
+                return (True,"move from " + str(coords.src) + " to " + str(coords.dst))
+            # Self-destruct: the source and destination coordinates are the same
+            elif coords.src == coords.dst:
+                self.mod_health(coords.src, -9)
+                total_damage = 0
+                for coord in coords.src.iter_range(1):
+                    if self.is_valid_coord(coord) and not self.is_empty(coord):
+                        self.mod_health(coord, -2)
+                        total_damage += 2
+                        file.write("Player " + str(self.next_player.name) + ": self-destruct at " + str(coords.src) + "\n" 
+                                   + "Self-destructed for " + str(total_damage) + " total damage\n")
+                return (True,"self-destruct at " + str(coords.src) + "\n"
+                        "self-destructed for " + str(total_damage) + " total damage")
+            # Repair: the source and destination belong to the same players
+            elif self.get(coords.src).player == self.get(coords.dst).player:
+                repair_amount = Unit.repair_table[self.get(coords.src).type.value][self.get(coords.dst).type.value]
+                self.mod_health(coords.dst, repair_amount)
+                file.write("Player " + str(self.next_player.name) + ": repair from " + str(coords.src) + " to " + str(coords.dst) 
+                           + "\nrepaired " + str(repair_amount) + " health points\n")
+                return (True,"repair from " + str(coords.src) + " to " + str(coords.dst) + "\n"
+                        "repaired " + str(repair_amount) + " health points")
+            # Attack: the source and destination belong to opposing players
+            else:
+                dst_dmg = Unit.damage_table[self.get(coords.src).type.value][self.get(coords.dst).type.value]
+                src_dmg = Unit.damage_table[self.get(coords.dst).type.value][self.get(coords.src).type.value]
+                self.mod_health(coords.dst, -dst_dmg)
+                self.mod_health(coords.src, -src_dmg)
+                file.write("Player " + str(self.next_player.name) + ": attack from " + str(coords.src) + " to " + str(coords.dst)
+                            + " combat damage: to source = " + str(src_dmg) + ", to target = " + str(dst_dmg) + "\n")
+                return (True, "attack from " + str(coords.src) + " to " + str(coords.dst) +
+                        "\ncombat damage: to source =  " + str(src_dmg) + ", to target = " + str(dst_dmg))
         return (False,"invalid move")
 
     def next_turn(self):
@@ -332,12 +483,18 @@ class Game:
         self.next_player = self.next_player.next()
         self.turns_played += 1
 
+
+    #Board is printed in here
     def to_string(self) -> str:
         """Pretty text representation of the game."""
         dim = self.options.dim
         output = ""
         output += f"Next player: {self.next_player.name}\n"
         output += f"Turns played: {self.turns_played}\n"
+        file.write("\n")
+        file.write("Next player: " + self.next_player.name + "\n")
+        file.write("Turns played: " + str(self.turns_played) + "\n")
+        file.write("\n")
         coord = Coord()
         output += "\n   "
         for col in range(dim):
@@ -357,12 +514,14 @@ class Game:
                 else:
                     output += f"{str(unit):^3} "
             output += "\n"
+
+        file.write(output + "\n")
         return output
 
     def __str__(self) -> str:
         """Default string representation of a game."""
         return self.to_string()
-
+    
     def is_valid_coord(self, coord: Coord) -> bool:
         """Check if a Coord is valid within out board dimensions."""
         dim = self.options.dim
@@ -373,13 +532,14 @@ class Game:
     def read_move(self) -> CoordPair:
         """Read a move from keyboard and return as a CoordPair."""
         while True:
+            file.write("Player " + str(self.next_player.name) + ", enter your move: \n")
             s = input(F'Player {self.next_player.name}, enter your move: ')
             coords = CoordPair.from_string(s)
             if coords is not None and self.is_valid_coord(coords.src) and self.is_valid_coord(coords.dst):
                 return coords
             else:
                 print('Invalid coordinates! Try again.')
-
+    
     def human_turn(self):
         """Human player plays a move (or get via broker)."""
         if self.options.broker is not None:
@@ -405,6 +565,8 @@ class Game:
                     break
                 else:
                     print("The move is not valid! Try again.")
+                    file.write("The move is not valid! Try again.\n")
+
 
     def computer_turn(self) -> CoordPair | None:
         """Computer plays a move."""
@@ -436,7 +598,7 @@ class Game:
             if self._defender_has_ai:
                 return None
             else:
-                return Player.Attacker
+                return Player.Attacker    
         elif self._defender_has_ai:
             return Player.Defender
 
@@ -462,7 +624,7 @@ class Game:
             return (0, None, 0)
 
     def suggest_move(self) -> CoordPair | None:
-        """Suggest the next move using minimax alpha beta. TODO: REPLACE RANDOM_MOVE WITH PROPER GAME LOGIC!!!"""
+        """Suggest the next move using minimax alpha beta. TODO: REPLACE RANDOM_MOVE WITH PROPER GAME LOGIC!!!""" #########################################################
         start_time = datetime.now()
         (score, move, avg_depth) = self.random_move()
         elapsed_seconds = (datetime.now() - start_time).total_seconds()
@@ -528,6 +690,9 @@ class Game:
             print(f"Broker error: {error}")
         return None
 
+
+
+
 ##############################################################################################################
 
 def main():
@@ -565,6 +730,10 @@ def main():
     # create a new game
     game = Game(options=options)
 
+
+    #File writing
+
+
     # the main game loop
     while True:
         print()
@@ -572,6 +741,7 @@ def main():
         winner = game.has_winner()
         if winner is not None:
             print(f"{winner.name} wins!")
+            file.write(f"{winner.name} wins!")
             break
         if game.options.game_type == GameType.AttackerVsDefender:
             game.human_turn()
@@ -587,6 +757,8 @@ def main():
             else:
                 print("Computer doesn't know what to do!!!")
                 exit(1)
+
+
 
 ##############################################################################################################
 
