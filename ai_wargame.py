@@ -309,7 +309,7 @@ class Game:
             target.mod_health(health_delta)
             self.remove_dead(coord)
 
-     def is_valid_move(self, coords : CoordPair) -> bool:
+    def is_valid_move(self, coords : CoordPair) -> bool:
         """Validate a move expressed as a CoordPair. TODO: WRITE MISSING CODE!!!""" #######################################################################
         if not self.is_valid_coord(coords.src) or not self.is_valid_coord(coords.dst):
             return False
@@ -356,75 +356,51 @@ class Game:
 
         # Check general movement
         # Defender can move a Program, Firewall or AI unit down or right
-        if((self.get(coords.src).player == Player.Defender) and (self.get(coords.src).type == UnitType.AI or self.get(coords.src).type == UnitType.Firewall or self.get(coords.src).type == UnitType.Program)):
+        if((self.get(coords.src).player == Player.Defender) and 
+           (self.get(coords.src).type == UnitType.AI or 
+            self.get(coords.src).type == UnitType.Firewall or 
+            self.get(coords.src).type == UnitType.Program)):
             
             # Check if unit is engaged in combat
             for coord in coords.src.iter_adjacent():
                 if (self.is_valid_coord(coord) and not self.is_empty(coord) and self.get(coord).player != self.next_player):
                     return False
-           
-            # Check if unit is moving down
-            if(str(coords.src)[0] == 'E' and (str(coords.dst)[0] != 'E')):
-                return False
-            elif (str(coords.src)[0] == 'D' and (str(coords.dst)[0] == 'A' or str(coords.dst)[0] == 'B' or str(coords.dst)[0] == 'C')):
-                return False
-            elif (str(coords.src)[0] == 'C' and (str(coords.dst)[0] == 'A' or str(coords.dst)[0] == 'B' or str(coords.dst)[0] == 'E')):
-                return False
-            elif (str(coords.src)[0] == 'B' and (str(coords.dst)[0] == 'A' or str(coords.dst)[0] == 'D' or str(coords.dst)[0] == 'E')):
-                return False
-            elif (str(coords.src)[0] == 'A' and (str(coords.dst)[0] == 'C' or str(coords.dst)[0] == 'D' or str(coords.dst)[0] == 'E')):
-                return False
-            
-            # Check if unit is moving right
-            if(str(coords.src)[1] == '4' and (str(coords.dst)[1] != '4')):
-                return False
-            elif (str(coords.src)[1] == '3' and (str(coords.dst)[1] == '0' or str(coords.dst)[1] == '1' or str(coords.dst)[1] == '2')):
-                return False
-            elif (str(coords.src)[1] == '2' and (str(coords.dst)[1] == '0' or str(coords.dst)[1] == '1' or str(coords.dst)[1] == '4')):
-                return False
-            elif (str(coords.src)[1] == '1' and (str(coords.dst)[1] == '0' or str(coords.dst)[1] == '3' or str(coords.dst)[1] == '4')):
-                return False
-            elif(str(coords.src)[1] == '0' and (str(coords.dst)[1] == '2' or str(coords.dst)[1] == '3' or str(coords.dst)[1] == '4')):
+                
+            # Check if unit moves down or right
+            if ((coords.dst == Coord(coords.src.row+1,coords.src.col)) or 
+                (coords.dst == Coord(coords.src.row,coords.src.col+1))):
+                return True
+            else:
                 return False
 
         # Attacker can move a Program, Firewall or AI unit up or left
-        if((self.get(coords.src).player == Player.Attacker) and (self.get(coords.src).type == UnitType.AI or self.get(coords.src).type == UnitType.Firewall or self.get(coords.src).type == UnitType.Program)):
+        if((self.get(coords.src).player == Player.Attacker) and 
+           (self.get(coords.src).type == UnitType.AI or 
+            self.get(coords.src).type == UnitType.Firewall or 
+            self.get(coords.src).type == UnitType.Program)):
             
             # Check if unit is engaged in combat
             for coord in coords.src.iter_adjacent():
                 if (self.is_valid_coord(coord) and not self.is_empty(coord) and (self.get(coord).player != self.next_player)):
                     return False
-            
-            # Check if unit is moving up
-            if(str(coords.src)[0] == 'E' and (str(coords.dst)[0] == 'A' or str(coords.dst)[0] == 'B' or str(coords.dst)[0] == 'C')):
-                return False
-            elif (str(coords.src)[0] == 'D' and (str(coords.dst)[0] == 'A' or str(coords.dst)[0] == 'B' or str(coords.dst)[0] == 'E')):
-                return False
-            elif (str(coords.src)[0] == 'C' and (str(coords.dst)[0] == 'A' or str(coords.dst)[0] == 'D' or str(coords.dst)[0] == 'E')):
-                return False
-            elif (str(coords.src)[0] == 'B' and (str(coords.dst)[0] == 'C' or str(coords.dst)[0] == 'D' or str(coords.dst)[0] == 'E')):
-                return False
-            elif (str(coords.src)[0] == 'A' and (str(coords.dst)[0] != 'A')):
-                return False
-            
-            # Check if unit is moving left
-            if(str(coords.src)[1] == '4' and (str(coords.dst)[1] == '2' or str(coords.dst)[1] == '1' or str(coords.dst)[1] == '0')):
-                return False
-            elif (str(coords.src)[1] == '3' and (str(coords.dst)[1] == '4' or str(coords.dst)[1] == '1' or str(coords.dst)[1] == '0')):
-                return False
-            elif (str(coords.src)[1] == '2' and (str(coords.dst)[1] == '4' or str(coords.dst)[1] == '3' or str(coords.dst)[1] == '0')):
-                return False
-            elif (str(coords.src)[1] == '1' and (str(coords.dst)[1] == '4' or str(coords.dst)[1] == '3' or str(coords.dst)[1] == '2')):
-                return False
-            elif (str(coords.src)[1] == '0' and (str(coords.dst)[1] != '0')):
+                
+            # Check if unit moves up or left
+            if ((coords.dst == Coord(coords.src.row-1,coords.src.col)) or 
+                (coords.dst == Coord(coords.src.row,coords.src.col-1))):
+                return True
+            else:
                 return False
 
         # Defender can move a Tech unit in any direction (except diagonally) at any time
-        # Attacker can move a Virus unit in any direction (except diagonally) at any time
-        if((str(coords.src)[0] != str(coords.dst)[0]) and str(coords.src)[1] != str(coords.dst)[1]):
+        # Attacker can move a Virus unit in any direction (except diagonally) at any time 
+        if ((coords.dst == Coord(coords.src.row-1,coords.src.col)) or 
+            (coords.dst == Coord(coords.src.row,coords.src.col-1)) or 
+            (coords.dst == Coord(coords.src.row+1,coords.src.col)) or 
+            (coords.dst == Coord(coords.src.row,coords.src.col+1))):
+            return True
+        else:
             return False
     
-        return (unit is None)
 
     def perform_move(self, coords : CoordPair) -> Tuple[bool,str]:
         if self.is_valid_move(coords):
