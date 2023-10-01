@@ -80,11 +80,11 @@ class Unit:
         p = self.player.name.lower()[0]
         t = self.type.name.upper()[0]
         return f"{p}{t}{self.health}"
-
+    
     def __str__(self) -> str:
         """Text representation of this unit."""
         return self.to_string()
-
+    
     def damage_amount(self, target: Unit) -> int:
         """How much can this unit damage another unit."""
         amount = self.damage_table[self.type.value][target.type.value]
@@ -124,11 +124,11 @@ class Coord:
     def to_string(self) -> str:
         """Text representation of this Coord."""
         return self.row_string()+self.col_string()
-
+    
     def __str__(self) -> str:
         """Text representation of this Coord."""
         return self.to_string()
-
+    
     def clone(self) -> Coord:
         """Clone a Coord."""
         return copy.copy(self)
@@ -171,7 +171,7 @@ class CoordPair:
     def to_string(self) -> str:
         """Text representation of a CoordPair."""
         return self.src.to_string()+" "+self.dst.to_string()
-
+    
     def __str__(self) -> str:
         """Text representation of a CoordPair."""
         return self.to_string()
@@ -190,12 +190,12 @@ class CoordPair:
     def from_quad(cls, row0: int, col0: int, row1: int, col1: int) -> CoordPair:
         """Create a CoordPair from 4 integers."""
         return CoordPair(Coord(row0,col0),Coord(row1,col1))
-
+    
     @classmethod
     def from_dim(cls, dim: int) -> CoordPair:
         """Create a CoordPair based on a dim-sized rectangle."""
         return CoordPair(Coord(0,0),Coord(dim-1,dim-1))
-
+    
     @classmethod
     def from_string(cls, s : str) -> CoordPair | None:
         """Create a CoordPair from a string. ex: A3 B2"""
@@ -310,21 +310,105 @@ class Game:
             self.remove_dead(coord)
 
     def is_valid_move(self, coords : CoordPair) -> bool:
-        """Validate a move expressed as a CoordPair. TODO: WRITE MISSING CODE!!!"""
+        """Validate a move expressed as a CoordPair. TODO: WRITE MISSING CODE!!!""" #######################################################################
         if not self.is_valid_coord(coords.src) or not self.is_valid_coord(coords.dst):
             return False
         unit = self.get(coords.src)
         if unit is None or unit.player != self.next_player:
             return False
         unit = self.get(coords.dst)
+        
+        # Movement
+        # Defender can move a Program, Firewall or AI unit down or right
+        if((self.get(coords.src).player == Player.Defender) and (self.get(coords.src).type == UnitType.AI or self.get(coords.src).type == UnitType.Firewall or self.get(coords.src).type == UnitType.Program)):
+            if(str(coords.src)[0] == 'E' and (str(coords.dst)[0] != 'E')):
+                return False
+            elif (str(coords.src)[0] == 'D' and (str(coords.dst)[0] == 'A' or str(coords.dst)[0] == 'B' or str(coords.dst)[0] == 'C')):
+                return False
+            elif (str(coords.src)[0] == 'C' and (str(coords.dst)[0] == 'A' or str(coords.dst)[0] == 'B' or str(coords.dst)[0] == 'E')):
+                return False
+            elif (str(coords.src)[0] == 'B' and (str(coords.dst)[0] == 'A' or str(coords.dst)[0] == 'D' or str(coords.dst)[0] == 'E')):
+                return False
+            elif (str(coords.src)[0] == 'A' and (str(coords.dst)[0] == 'C' or str(coords.dst)[0] == 'D' or str(coords.dst)[0] == 'E')):
+                return False
+            
+            if(str(coords.src)[1] == '4' and (str(coords.dst)[1] != '4')):
+                return False
+            elif (str(coords.src)[1] == '3' and (str(coords.dst)[1] == '0' or str(coords.dst)[1] == '1' or str(coords.dst)[1] == '2')):
+                return False
+            elif (str(coords.src)[1] == '2' and (str(coords.dst)[1] == '0' or str(coords.dst)[1] == '1' or str(coords.dst)[1] == '4')):
+                return False
+            elif (str(coords.src)[1] == '1' and (str(coords.dst)[1] == '0' or str(coords.dst)[1] == '3' or str(coords.dst)[1] == '4')):
+                return False
+            elif(str(coords.src)[1] == '0' and (str(coords.dst)[1] == '2' or str(coords.dst)[1] == '3' or str(coords.dst)[1] == '4')):
+                return False
+
+        # Attacker can move a Program, Firewall or AI unit up or left
+        if((self.get(coords.src).player == Player.Attacker) and (self.get(coords.src).type == UnitType.AI or self.get(coords.src).type == UnitType.Firewall or self.get(coords.src).type == UnitType.Program)):
+            if(str(coords.src)[0] == 'E' and (str(coords.dst)[0] == 'A' or str(coords.dst)[0] == 'B' or str(coords.dst)[0] == 'C')):
+                return False
+            elif (str(coords.src)[0] == 'D' and (str(coords.dst)[0] == 'A' or str(coords.dst)[0] == 'B' or str(coords.dst)[0] == 'E')):
+                return False
+            elif (str(coords.src)[0] == 'C' and (str(coords.dst)[0] == 'A' or str(coords.dst)[0] == 'D' or str(coords.dst)[0] == 'E')):
+                return False
+            elif (str(coords.src)[0] == 'B' and (str(coords.dst)[0] == 'C' or str(coords.dst)[0] == 'D' or str(coords.dst)[0] == 'E')):
+                return False
+            elif (str(coords.src)[0] == 'A' and (str(coords.dst)[0] != 'A')):
+                return False
+            
+            if(str(coords.src)[1] == '4' and (str(coords.dst)[1] == '2' or str(coords.dst)[1] == '1' or str(coords.dst)[1] == '0')):
+                return False
+            elif (str(coords.src)[1] == '3' and (str(coords.dst)[1] == '4' or str(coords.dst)[1] == '1' or str(coords.dst)[1] == '0')):
+                return False
+            elif (str(coords.src)[1] == '2' and (str(coords.dst)[1] == '4' or str(coords.dst)[1] == '3' or str(coords.dst)[1] == '0')):
+                return False
+            elif (str(coords.src)[1] == '1' and (str(coords.dst)[1] == '4' or str(coords.dst)[1] == '3' or str(coords.dst)[1] == '2')):
+                return False
+            elif (str(coords.src)[1] == '0' and (str(coords.dst)[1] != '0')):
+                return False
+
+        # Defender can move a Tech unit in any direction (except diagonally) at any time
+        # Attacker can move a Virus unit in any direction (except diagonally) at any time
+        if((str(coords.src)[0] != str(coords.dst)[0]) and str(coords.src)[1] != str(coords.dst)[1]):
+            return False
+
+        # Self-destruct: the source and destination coordinates are the same
+        if coords.src == coords.dst:
+            return True
+    
         return (unit is None)
 
     def perform_move(self, coords : CoordPair) -> Tuple[bool,str]:
-        """Validate and perform a move expressed as a CoordPair. TODO: WRITE MISSING CODE!!!"""
         if self.is_valid_move(coords):
-            self.set(coords.dst,self.get(coords.src))
-            self.set(coords.src,None)
-            return (True,"")
+            # Movement: the destination coordinate is not occupied by any unit
+            if self.get(coords.dst) is None:
+                self.set(coords.dst,self.get(coords.src))
+                self.set(coords.src,None)
+                return (True,"move from " + str(coords.src) + " to " + str(coords.dst))
+            # Self-destruct: the source and destination coordinates are the same
+            elif coords.src == coords.dst:
+                self.mod_health(coords.src, -9)
+                total_damage = 0
+                for coord in coords.src.iter_range(1):
+                    if self.is_valid_coord(coord) and not self.is_empty(coord):
+                        self.mod_health(coord, -2)
+                        total_damage += 2
+                return (True,"self-destruct at " + str(coords.src) + "\n"
+                        "self-destructed for " + str(total_damage) + " total damage")
+            # Repair: the source and destination belong to the same players
+            elif self.get(coords.src).player == self.get(coords.dst).player:
+                repair_amount = Unit.repair_table[self.get(coords.src).type.value][self.get(coords.dst).type.value]
+                self.mod_health(coords.dst, repair_amount)
+                return (True,"repair from " + str(coords.src) + " to " + str(coords.dst) + "\n"
+                        "repaired " + str(repair_amount) + " health points")
+            # Attack: the source and destination belong to opposing players
+            else:
+                dst_dmg = Unit.damage_table[self.get(coords.src).type.value][self.get(coords.dst).type.value]
+                src_dmg = Unit.damage_table[self.get(coords.dst).type.value][self.get(coords.src).type.value]
+                self.mod_health(coords.dst, -dst_dmg)
+                self.mod_health(coords.src, -src_dmg)
+                return (True, "attack from " + str(coords.src) + " to " + str(coords.dst) +
+                        "\ncombat damage: to source =  " + str(src_dmg) + ", to target = " + str(dst_dmg))
         return (False,"invalid move")
 
     def next_turn(self):
@@ -362,7 +446,7 @@ class Game:
     def __str__(self) -> str:
         """Default string representation of a game."""
         return self.to_string()
-
+    
     def is_valid_coord(self, coord: Coord) -> bool:
         """Check if a Coord is valid within out board dimensions."""
         dim = self.options.dim
@@ -379,7 +463,7 @@ class Game:
                 return coords
             else:
                 print('Invalid coordinates! Try again.')
-
+    
     def human_turn(self):
         """Human player plays a move (or get via broker)."""
         if self.options.broker is not None:
@@ -436,7 +520,7 @@ class Game:
             if self._defender_has_ai:
                 return None
             else:
-                return Player.Attacker
+                return Player.Attacker    
         elif self._defender_has_ai:
             return Player.Defender
 
@@ -462,7 +546,7 @@ class Game:
             return (0, None, 0)
 
     def suggest_move(self) -> CoordPair | None:
-        """Suggest the next move using minimax alpha beta. TODO: REPLACE RANDOM_MOVE WITH PROPER GAME LOGIC!!!"""
+        """Suggest the next move using minimax alpha beta. TODO: REPLACE RANDOM_MOVE WITH PROPER GAME LOGIC!!!""" #########################################################
         start_time = datetime.now()
         (score, move, avg_depth) = self.random_move()
         elapsed_seconds = (datetime.now() - start_time).total_seconds()
