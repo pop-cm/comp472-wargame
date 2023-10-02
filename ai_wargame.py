@@ -5,21 +5,9 @@ from datetime import datetime
 from enum import Enum
 from dataclasses import dataclass, field
 from time import sleep
-from typing import Tuple, TypeVar, Type, Iterable, ClassVar
+from typing import Tuple, TypeVar, Type, Iterable, ClassVar, TextIO
 import random
 import requests
-
-
-#File to write to
-file_path = "gameTrace-True-5-100.txt"
-file = open(file_path, "w")
-
-#write parameters, hardcoded but should change
-file.write("Game parameters\n")
-file.write("The value of the timeout is 5s\n")
-file.write("The max number of turns is 100\n")
-file.write("The alpha-beta is on\n")
-file.write("Play mode is H VS H\n")
 
 # maximum and minimum values for our heuristic scores (usually represents an end of game condition)
 MAX_HEURISTIC_SCORE = 2000000000
@@ -252,6 +240,7 @@ class Stats:
 @dataclass(slots=True)
 class Game:
     """Representation of the game state."""
+    file: TextIO | None = None
     board: list[list[Unit | None]] = field(default_factory=list)
     next_player: Player = Player.Attacker
     turns_played : int = 0
@@ -277,6 +266,21 @@ class Game:
         self.set(Coord(md-2,md),Unit(player=Player.Attacker,type=UnitType.Program))
         self.set(Coord(md,md-2),Unit(player=Player.Attacker,type=UnitType.Program))
         self.set(Coord(md-1,md-1),Unit(player=Player.Attacker,type=UnitType.Firewall))
+
+        # File writing
+        file_path = ("gameTrace-"
+                     + str(self.options.alpha_beta) + "-"
+                     + str(self.options.max_time) + "-"
+                     + str(self.options.max_turns) + ".txt")
+        self.file = open(file_path, "w")
+
+        # write parameters
+        self.file.write("Game parameters\n")
+        self.file.write(f"The value of the timeout is {self.options.max_time}s\n")
+        self.file.write(f"The max number of turns is {self.options.max_turns}\n")
+        self.file.write(f"The alpha-beta is {self.options.alpha_beta}\n")
+        self.file.write(f"Play mode is {self.options.game_type}\n")
+        self.file.write("--------------------------------------------------\n\n")
 
     def clone(self) -> Game:
         """Make a new copy of a game for minimax recursion.
@@ -322,7 +326,6 @@ class Game:
             self.remove_dead(coord)
 
     def is_valid_move(self, coords : CoordPair) -> bool:
-        """Validate a move expressed as a CoordPair. TODO: WRITE MISSING CODE!!!""" #######################################################################
         if not self.is_valid_coord(coords.src) or not self.is_valid_coord(coords.dst):
             return False
         unit = self.get(coords.src)
@@ -419,7 +422,6 @@ class Game:
             if self.get(coords.dst) is None:
                 self.set(coords.dst,self.get(coords.src))
                 self.set(coords.src,None)
-                file.write("Player " + str(self.next_player.name) + " move from " + str(coords.src) + " to " + str(coords.dst) + "\n")
                 return (True,"move from " + str(coords.src) + " to " + str(coords.dst))
             # Self-destruct: the source and destination coordinates are the same
             elif coords.src == coords.dst:
@@ -429,16 +431,12 @@ class Game:
                     if self.is_valid_coord(coord) and not self.is_empty(coord):
                         self.mod_health(coord, -2)
                         total_damage += 2
-                        file.write("Player " + str(self.next_player.name) + ": self-destruct at " + str(coords.src) + "\n" 
-                                   + "Self-destructed for " + str(total_damage) + " total damage\n")
                 return (True,"self-destruct at " + str(coords.src) + "\n"
                         "self-destructed for " + str(total_damage) + " total damage")
             # Repair: the source and destination belong to the same players
             elif self.get(coords.src).player == self.get(coords.dst).player:
                 repair_amount = Unit.repair_table[self.get(coords.src).type.value][self.get(coords.dst).type.value]
                 self.mod_health(coords.dst, repair_amount)
-                file.write("Player " + str(self.next_player.name) + ": repair from " + str(coords.src) + " to " + str(coords.dst) 
-                           + "\nrepaired " + str(repair_amount) + " health points\n")
                 return (True,"repair from " + str(coords.src) + " to " + str(coords.dst) + "\n"
                         "repaired " + str(repair_amount) + " health points")
             # Attack: the source and destination belong to opposing players
@@ -447,8 +445,6 @@ class Game:
                 src_dmg = Unit.damage_table[self.get(coords.dst).type.value][self.get(coords.src).type.value]
                 self.mod_health(coords.dst, -dst_dmg)
                 self.mod_health(coords.src, -src_dmg)
-                file.write("Player " + str(self.next_player.name) + ": attack from " + str(coords.src) + " to " + str(coords.dst)
-                            + " combat damage: to source = " + str(src_dmg) + ", to target = " + str(dst_dmg) + "\n")
                 return (True, "attack from " + str(coords.src) + " to " + str(coords.dst) +
                         "\ncombat damage: to source =  " + str(src_dmg) + ", to target = " + str(dst_dmg))
         return (False,"invalid move")
@@ -466,10 +462,6 @@ class Game:
         output = ""
         output += f"Next player: {self.next_player.name}\n"
         output += f"Turns played: {self.turns_played}\n"
-        file.write("\n")
-        file.write("Next player: " + self.next_player.name + "\n")
-        file.write("Turns played: " + str(self.turns_played) + "\n")
-        file.write("\n")
         coord = Coord()
         output += "\n   "
         for col in range(dim):
@@ -490,7 +482,7 @@ class Game:
                     output += f"{str(unit):^3} "
             output += "\n"
 
-        file.write(output + "\n")
+        self.file.write(output + "\n")
         return output
 
     def __str__(self) -> str:
@@ -507,7 +499,6 @@ class Game:
     def read_move(self) -> CoordPair:
         """Read a move from keyboard and return as a CoordPair."""
         while True:
-            file.write("Player " + str(self.next_player.name) + ", enter your move: \n")
             s = input(F'Player {self.next_player.name}, enter your move: ')
             coords = CoordPair.from_string(s)
             if coords is not None and self.is_valid_coord(coords.src) and self.is_valid_coord(coords.dst):
@@ -525,6 +516,7 @@ class Game:
                     (success,result) = self.perform_move(mv)
                     print(f"Broker {self.next_player.name}: ",end='')
                     print(result)
+                    self.file.write(result + "\n")
                     if success:
                         self.next_turn()
                         break
@@ -536,12 +528,11 @@ class Game:
                 if success:
                     print(f"Player {self.next_player.name}: ",end='')
                     print(result)
+                    self.file.write(result + "\n")
                     self.next_turn()
                     break
                 else:
                     print("The move is not valid! Try again.")
-                    file.write("The move is not valid! Try again.\n")
-
 
     def computer_turn(self) -> CoordPair | None:
         """Computer plays a move."""
@@ -679,6 +670,7 @@ def main():
     parser.add_argument('--max_time', type=float, help='maximum search time')
     parser.add_argument('--game_type', type=str, default="manual", help='game type: auto|attacker|defender|manual')
     parser.add_argument('--broker', type=str, help='play via a game broker')
+    parser.add_argument('--max_turns', type=int, help='maximum number of moves/turns')
     args = parser.parse_args()
 
     # parse the game type
@@ -701,13 +693,11 @@ def main():
         options.max_time = args.max_time
     if args.broker is not None:
         options.broker = args.broker
+    if args.max_turns is not None:
+        options.max_turns = args.max_turns
 
     # create a new game
     game = Game(options=options)
-
-
-    #File writing
-
 
     # the main game loop
     while True:
@@ -715,8 +705,8 @@ def main():
         print(game)
         winner = game.has_winner()
         if winner is not None:
-            print(f"{winner.name} wins!")
-            file.write(f"{winner.name} wins!")
+            print(f"{winner.name} wins in {game.turns_played} moves!")
+            game.file.write(f"{winner.name} wins in {game.turns_played} moves!")
             break
         if game.options.game_type == GameType.AttackerVsDefender:
             game.human_turn()
