@@ -5,7 +5,7 @@ from datetime import datetime
 from enum import Enum
 from dataclasses import dataclass, field
 from time import sleep
-from typing import Tuple, TypeVar, Type, Iterable, ClassVar
+from typing import Tuple, TypeVar, Type, Iterable, ClassVar, TextIO
 import random
 import requests
 
@@ -80,11 +80,11 @@ class Unit:
         p = self.player.name.lower()[0]
         t = self.type.name.upper()[0]
         return f"{p}{t}{self.health}"
-
+    
     def __str__(self) -> str:
         """Text representation of this unit."""
         return self.to_string()
-
+    
     def damage_amount(self, target: Unit) -> int:
         """How much can this unit damage another unit."""
         amount = self.damage_table[self.type.value][target.type.value]
@@ -124,17 +124,17 @@ class Coord:
     def to_string(self) -> str:
         """Text representation of this Coord."""
         return self.row_string()+self.col_string()
-
+    
     def __str__(self) -> str:
         """Text representation of this Coord."""
         return self.to_string()
-
+    
     def clone(self) -> Coord:
         """Clone a Coord."""
         return copy.copy(self)
 
     def iter_range(self, dist: int) -> Iterable[Coord]:
-        """Iterates over Coords inside a square centered on our Coord."""
+        """Iterates over Coords inside a rectangle centered on our Coord."""
         for row in range(self.row-dist,self.row+1+dist):
             for col in range(self.col-dist,self.col+1+dist):
                 yield Coord(row,col)
@@ -171,7 +171,7 @@ class CoordPair:
     def to_string(self) -> str:
         """Text representation of a CoordPair."""
         return self.src.to_string()+" "+self.dst.to_string()
-
+    
     def __str__(self) -> str:
         """Text representation of a CoordPair."""
         return self.to_string()
@@ -190,12 +190,12 @@ class CoordPair:
     def from_quad(cls, row0: int, col0: int, row1: int, col1: int) -> CoordPair:
         """Create a CoordPair from 4 integers."""
         return CoordPair(Coord(row0,col0),Coord(row1,col1))
-
+    
     @classmethod
     def from_dim(cls, dim: int) -> CoordPair:
         """Create a CoordPair based on a dim-sized rectangle."""
         return CoordPair(Coord(0,0),Coord(dim-1,dim-1))
-
+    
     @classmethod
     def from_string(cls, s : str) -> CoordPair | None:
         """Create a CoordPair from a string. ex: A3 B2"""
@@ -240,6 +240,7 @@ class Stats:
 @dataclass(slots=True)
 class Game:
     """Representation of the game state."""
+    file: TextIO | None = None
     board: list[list[Unit | None]] = field(default_factory=list)
     next_player: Player = Player.Attacker
     turns_played : int = 0
@@ -265,6 +266,21 @@ class Game:
         self.set(Coord(md-2,md),Unit(player=Player.Attacker,type=UnitType.Program))
         self.set(Coord(md,md-2),Unit(player=Player.Attacker,type=UnitType.Program))
         self.set(Coord(md-1,md-1),Unit(player=Player.Attacker,type=UnitType.Firewall))
+
+        # File writing
+        file_path = ("gameTrace-"
+                     + str(self.options.alpha_beta) + "-"
+                     + str(self.options.max_time) + "-"
+                     + str(self.options.max_turns) + ".txt")
+        self.file = open(file_path, "w")
+
+        # write parameters
+        self.file.write("Game parameters\n")
+        self.file.write(f"The value of the timeout is {self.options.max_time}s\n")
+        self.file.write(f"The max number of turns is {self.options.max_turns}\n")
+        self.file.write(f"The alpha-beta is {self.options.alpha_beta}\n")
+        self.file.write(f"Play mode is {self.options.game_type}\n")
+        self.file.write("--------------------------------------------------\n\n")
 
     def clone(self) -> Game:
         """Make a new copy of a game for minimax recursion.
@@ -309,21 +325,20 @@ class Game:
             target.mod_health(health_delta)
             self.remove_dead(coord)
 
-
-
-
     def is_valid_move(self, coords : CoordPair) -> bool:
-        """Validate a move expressed as a CoordPair. TODO: WRITE MISSING CODE!!!"""
         if not self.is_valid_coord(coords.src) or not self.is_valid_coord(coords.dst):
             return False
         unit = self.get(coords.src)
         if unit is None or unit.player != self.next_player:
             return False
-        
-
         unit = self.get(coords.dst)
-        #Check for attacking
 
+        # Check self-destruct
+        # Check if the source and destination coordinates are the same
+        if coords.src == coords.dst:
+            return True
+        
+        #Check for attacking
         #Check if there is a unit in the destination, and that it is a piece belonging to the turn player
         if (unit is not None) and (unit.player != self.next_player):
             #Checks if the pieces are either in the same col but 1 row apart, or if they're in the same row but 1 col apart
@@ -333,9 +348,7 @@ class Game:
             else: 
                 return False
             
-
         #Check for repairing
-
         #Checks that there is a unit in the destination, and that it is a piece belonging to the turn player
         if (unit is not None) and (unit.player == self.next_player):
             #Checks if they are either in the same col but 1 row apart, of ir they're in the same row but 1 col apart
@@ -352,20 +365,58 @@ class Game:
                 
                 return False
             
-
             #Not in correct position
             else: 
                 return False
 
-        
-        if (unit is None):
-            return (unit is None)
+        # Check general movement
+        # Defender can move a Program, Firewall or AI unit down or right
+        if((self.get(coords.src).player == Player.Defender) and 
+           (self.get(coords.src).type == UnitType.AI or 
+            self.get(coords.src).type == UnitType.Firewall or 
+            self.get(coords.src).type == UnitType.Program)):
+            
+            # Check if unit is engaged in combat
+            for coord in coords.src.iter_adjacent():
+                if (self.is_valid_coord(coord) and not self.is_empty(coord) and self.get(coord).player != self.next_player):
+                    return False
+                
+            # Check if unit moves down or right
+            if ((coords.dst == Coord(coords.src.row+1,coords.src.col)) or 
+                (coords.dst == Coord(coords.src.row,coords.src.col+1))):
+                return True
+            else:
+                return False
 
+        # Attacker can move a Program, Firewall or AI unit up or left
+        if((self.get(coords.src).player == Player.Attacker) and 
+           (self.get(coords.src).type == UnitType.AI or 
+            self.get(coords.src).type == UnitType.Firewall or 
+            self.get(coords.src).type == UnitType.Program)):
+            
+            # Check if unit is engaged in combat
+            for coord in coords.src.iter_adjacent():
+                if (self.is_valid_coord(coord) and not self.is_empty(coord) and (self.get(coord).player != self.next_player)):
+                    return False
+                
+            # Check if unit moves up or left
+            if ((coords.dst == Coord(coords.src.row-1,coords.src.col)) or 
+                (coords.dst == Coord(coords.src.row,coords.src.col-1))):
+                return True
+            else:
+                return False
 
-
+        # Defender can move a Tech unit in any direction (except diagonally) at any time
+        # Attacker can move a Virus unit in any direction (except diagonally) at any time 
+        if ((coords.dst == Coord(coords.src.row-1,coords.src.col)) or 
+            (coords.dst == Coord(coords.src.row,coords.src.col-1)) or 
+            (coords.dst == Coord(coords.src.row+1,coords.src.col)) or 
+            (coords.dst == Coord(coords.src.row,coords.src.col+1))):
+            return True
+        else:
+            return False
 
     def perform_move(self, coords : CoordPair) -> Tuple[bool,str]:
-        """Validate and perform a move expressed as a CoordPair. TODO: WRITE MISSING CODE!!!"""
         if self.is_valid_move(coords):
             # Movement: the destination coordinate is not occupied by any unit
             if self.get(coords.dst) is None:
@@ -382,18 +433,12 @@ class Game:
                         total_damage += 2
                 return (True,"self-destruct at " + str(coords.src) + "\n"
                         "self-destructed for " + str(total_damage) + " total damage")
-            
-
-
             # Repair: the source and destination belong to the same players
             elif self.get(coords.src).player == self.get(coords.dst).player:
                 repair_amount = Unit.repair_table[self.get(coords.src).type.value][self.get(coords.dst).type.value]
                 self.mod_health(coords.dst, repair_amount)
                 return (True,"repair from " + str(coords.src) + " to " + str(coords.dst) + "\n"
                         "repaired " + str(repair_amount) + " health points")
-            
-
-
             # Attack: the source and destination belong to opposing players
             else:
                 dst_dmg = Unit.damage_table[self.get(coords.src).type.value][self.get(coords.dst).type.value]
@@ -404,17 +449,20 @@ class Game:
                         "\ncombat damage: to source =  " + str(src_dmg) + ", to target = " + str(dst_dmg))
         return (False,"invalid move")
 
-
-
-
     def next_turn(self):
         """Transitions game to the next turn."""
         self.next_player = self.next_player.next()
         self.turns_played += 1
 
+
+    #Board is printed in here
     def to_string(self) -> str:
         """Pretty text representation of the game."""
         dim = self.options.dim
+
+        #test
+        print('Heuristic value at this board state is: ' + str(self.e0()))
+
         output = ""
         output += f"Next player: {self.next_player.name}\n"
         output += f"Turns played: {self.turns_played}\n"
@@ -437,12 +485,14 @@ class Game:
                 else:
                     output += f"{str(unit):^3} "
             output += "\n"
+
+        self.file.write(output + "\n")
         return output
 
     def __str__(self) -> str:
         """Default string representation of a game."""
         return self.to_string()
-
+    
     def is_valid_coord(self, coord: Coord) -> bool:
         """Check if a Coord is valid within out board dimensions."""
         dim = self.options.dim
@@ -452,6 +502,7 @@ class Game:
 
     def read_move(self) -> CoordPair:
         """Read a move from keyboard and return as a CoordPair."""
+
         while True:
             s = input(F'Player {self.next_player.name}, enter your move: ')
             coords = CoordPair.from_string(s)
@@ -459,9 +510,7 @@ class Game:
                 return coords
             else:
                 print('Invalid coordinates! Try again.')
-
-
-
+    
     def human_turn(self):
         """Human player plays a move (or get via broker)."""
         if self.options.broker is not None:
@@ -472,6 +521,7 @@ class Game:
                     (success,result) = self.perform_move(mv)
                     print(f"Broker {self.next_player.name}: ",end='')
                     print(result)
+                    self.file.write(result + "\n")
                     if success:
                         self.next_turn()
                         break
@@ -483,13 +533,11 @@ class Game:
                 if success:
                     print(f"Player {self.next_player.name}: ",end='')
                     print(result)
+                    self.file.write(result + "\n")
                     self.next_turn()
                     break
                 else:
                     print("The move is not valid! Try again.")
-
-
-
 
     def computer_turn(self) -> CoordPair | None:
         """Computer plays a move."""
@@ -521,7 +569,7 @@ class Game:
             if self._defender_has_ai:
                 return None
             else:
-                return Player.Attacker
+                return Player.Attacker    
         elif self._defender_has_ai:
             return Player.Defender
 
@@ -537,19 +585,113 @@ class Game:
             move.dst = src
             yield move.clone()
 
-    def random_move(self) -> Tuple[int, CoordPair | None, float]:
-        """Returns a random move."""
-        move_candidates = list(self.move_candidates())
-        random.shuffle(move_candidates)
-        if len(move_candidates) > 0:
-            return (0, move_candidates[0], 1)
-        else:
-            return (0, None, 0)
 
-    def suggest_move(self) -> CoordPair | None:
-        """Suggest the next move using minimax alpha beta. TODO: REPLACE RANDOM_MOVE WITH PROPER GAME LOGIC!!!"""
+
+    #Fab's part
+    #Heuristic e0
+    def e0(self):
+        #Define values for each unit type (adjust these values as needed)
+        unit_values = {
+            UnitType.AI: 9999,
+            UnitType.Tech: 3,
+            UnitType.Virus: 3,
+            UnitType.Program: 3,
+            UnitType.Firewall: 3,
+        }
+
+        #Initialize counters for each player's pieces and piece type
+        player1_counts = {unit_type: 0 for unit_type in UnitType}
+        player2_counts = {unit_type: 0 for unit_type in UnitType}
+
+        #Count the number of each piece type for each player
+        for coord in CoordPair.from_dim(self.options.dim).iter_rectangle():
+            unit = self.get(coord)
+            if unit is not None:
+                if unit.player == Player.Attacker:
+                    player1_counts[unit.type] += 1
+                else:
+                    player2_counts[unit.type] += 1
+
+        e0_val = (
+            sum(unit_values[unit_type] * player1_counts[unit_type] for unit_type in UnitType) 
+            - sum(unit_values[unit_type] * player2_counts[unit_type] for unit_type in UnitType)
+        )
+
+        return e0_val
+    
+
+
+    #Fab's part
+    #Function to generate a list of all possible moves
+    def generate_valid_moves(self):
+        # This function generates all valid moves for the current player.
+        # It returns a list of CoordPair objects.
+        valid_moves = []
+        for move in self.move_candidates():
+            if self.is_valid_move(move):
+                valid_moves.append(move)
+        return valid_moves
+
+
+
+
+    #Return should be: return (heuristic_score, move, avg_depth)
+    #Fab's part
+    def random_move(self, coords : CoordPair, current_game, depth, maximize) -> Tuple[int, CoordPair | None, float]:
+        move_candidates = list(self.generate_valid_moves())
+
+        if self.is_finished():
+            return (current_game.e0(), None, 0)
+        
+        #Attacker is the max
+        if maximize:
+            max_eval = -float('inf')
+            best_move = None
+            for move in current_game.generate_valid_moves():
+                game_clone = current_game.clone()
+                game_clone.perform_move(move)
+                #The , _ means only take the first return value
+                eval, _ = current_game.random_move(game_clone, depth - 1, False)
+                if eval > max_eval:
+                    max_eval = eval
+                    best_move = move
+            return (max_eval, best_move, depth)
+        
+        #Defender (minimizing player)
+        else:
+            min_eval = float('inf')
+            best_move = None
+            for move in current_game.generate_valid_moves():
+                game_clone = current_game.clone()
+                game_clone.perform_move(move)
+                eval, _ = current_game.random_move(game_clone, depth - 1, True)
+                if eval < min_eval:
+                    min_eval = eval
+                    best_move = move
+            return (min_eval, best_move, depth)
+
+        #Original random_move()
+        #random.shuffle(move_candidates)
+        #if len(move_candidates) > 0:
+        #    return (0, move_candidates[0], 1)
+        #else:
+        #    return (0, None, 0)
+
+
+
+
+    def suggest_move(self, coords: CoordPair) -> CoordPair | None:
+        """Suggest the next move using minimax alpha beta. TODO: REPLACE RANDOM_MOVE WITH PROPER GAME LOGIC!!!""" #########################################################
         start_time = datetime.now()
-        (score, move, avg_depth) = self.random_move()
+
+        if self.get(coords.src).player == Player.Attacker:
+            maximize = True
+        else:
+            maximize = False
+
+
+        (score, move, avg_depth) = self.random_move(self.clone, maximize)
+
         elapsed_seconds = (datetime.now() - start_time).total_seconds()
         self.stats.total_seconds += elapsed_seconds
         print(f"Heuristic score: {score}")
@@ -563,6 +705,9 @@ class Game:
             print(f"Eval perf.: {total_evals/self.stats.total_seconds/1000:0.1f}k/s")
         print(f"Elapsed time: {elapsed_seconds:0.1f}s")
         return move
+
+
+
 
     def post_move_to_broker(self, move: CoordPair):
         """Send a move to the game broker."""
@@ -613,6 +758,9 @@ class Game:
             print(f"Broker error: {error}")
         return None
 
+
+
+
 ##############################################################################################################
 
 def main():
@@ -624,6 +772,7 @@ def main():
     parser.add_argument('--max_time', type=float, help='maximum search time')
     parser.add_argument('--game_type', type=str, default="manual", help='game type: auto|attacker|defender|manual')
     parser.add_argument('--broker', type=str, help='play via a game broker')
+    parser.add_argument('--max_turns', type=int, help='maximum number of moves/turns')
     args = parser.parse_args()
 
     # parse the game type
@@ -646,6 +795,8 @@ def main():
         options.max_time = args.max_time
     if args.broker is not None:
         options.broker = args.broker
+    if args.max_turns is not None:
+        options.max_turns = args.max_turns
 
     # create a new game
     game = Game(options=options)
@@ -656,8 +807,11 @@ def main():
         print(game)
         winner = game.has_winner()
         if winner is not None:
-            print(f"{winner.name} wins!")
+            print(f"{winner.name} wins in {game.turns_played} moves!")
+            game.file.write(f"{winner.name} wins in {game.turns_played} moves!")
             break
+
+        #Checks what game is being played
         if game.options.game_type == GameType.AttackerVsDefender:
             game.human_turn()
         elif game.options.game_type == GameType.AttackerVsComp and game.next_player == Player.Attacker:
@@ -672,6 +826,8 @@ def main():
             else:
                 print("Computer doesn't know what to do!!!")
                 exit(1)
+
+
 
 ##############################################################################################################
 
