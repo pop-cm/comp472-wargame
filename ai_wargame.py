@@ -220,8 +220,8 @@ class Options:
     dim: int = 5
     max_depth : int | None = 4
     min_depth : int | None = 2
-    max_time : float | None = 5.0
-    game_type : GameType = GameType.AttackerVsDefender
+    max_time : float | None = 20.0
+    game_type : GameType = GameType.CompVsComp
     alpha_beta : bool = True
     max_turns : int | None = 100
     randomize_moves : bool = True
@@ -637,34 +637,46 @@ class Game:
 
     #Return should be: return (heuristic_score, move, avg_depth)
     #Fab's part
-    def random_move(self, coords : CoordPair, current_game, depth, maximize) -> Tuple[int, CoordPair | None, float]:
+    def random_move(self, current_game, depth, maximize) -> Tuple[int, CoordPair | None, float]:
         move_candidates = list(self.generate_valid_moves())
 
         if self.is_finished():
-            return (current_game.e0(), None, 0)
+            return (current_game.e0(), None, 0)   
         
         #Attacker is the max
-        if maximize:
+        if (maximize) and (depth > 0):
             max_eval = -float('inf')
             best_move = None
-            for move in current_game.generate_valid_moves():
+
+            #test
+            print(len(current_game.generate_valid_moves()))
+
+            for move in move_candidates:
                 game_clone = current_game.clone()
                 game_clone.perform_move(move)
                 #The , _ means only take the first return value
-                eval, _ = current_game.random_move(game_clone, depth - 1, False)
+                if (current_game.random_move(game_clone, depth - 1, False)) is not None:
+                    eval, _ = current_game.random_move(game_clone, depth - 1, False)
+                else:
+                    eval = -9999
+
                 if eval > max_eval:
                     max_eval = eval
                     best_move = move
             return (max_eval, best_move, depth)
         
         #Defender (minimizing player)
-        else:
+        elif (maximize == False) and (depth > 0):
             min_eval = float('inf')
             best_move = None
-            for move in current_game.generate_valid_moves():
+            for move in move_candidates:
                 game_clone = current_game.clone()
                 game_clone.perform_move(move)
-                eval, _ = current_game.random_move(game_clone, depth - 1, True)
+                if (current_game.random_move(game_clone, depth - 1, True)) is not None:
+                    eval, _ = current_game.random_move(game_clone, depth - 1, True)
+                else:
+                    eval = 9999
+
                 if eval < min_eval:
                     min_eval = eval
                     best_move = move
@@ -680,17 +692,17 @@ class Game:
 
 
 
-    def suggest_move(self, coords: CoordPair) -> CoordPair | None:
+    def suggest_move(self) -> CoordPair | None:
         """Suggest the next move using minimax alpha beta. TODO: REPLACE RANDOM_MOVE WITH PROPER GAME LOGIC!!!""" #########################################################
         start_time = datetime.now()
 
-        if self.get(coords.src).player == Player.Attacker:
+        if self.next_player == Player.Attacker:
             maximize = True
         else:
             maximize = False
 
 
-        (score, move, avg_depth) = self.random_move(self.clone, maximize)
+        (score, move, avg_depth) = self.random_move(self.clone(), maximize, 1)
 
         elapsed_seconds = (datetime.now() - start_time).total_seconds()
         self.stats.total_seconds += elapsed_seconds
@@ -770,7 +782,7 @@ def main():
         formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument('--max_depth', type=int, help='maximum search depth')
     parser.add_argument('--max_time', type=float, help='maximum search time')
-    parser.add_argument('--game_type', type=str, default="manual", help='game type: auto|attacker|defender|manual')
+    parser.add_argument('--game_type', type=str, default="auto", help='game type: auto|attacker|defender|manual')
     parser.add_argument('--broker', type=str, help='play via a game broker')
     parser.add_argument('--max_turns', type=int, help='maximum number of moves/turns')
     args = parser.parse_args()
@@ -803,6 +815,7 @@ def main():
 
     # the main game loop
     while True:
+        print(game.options.game_type)
         print()
         print(game)
         winner = game.has_winner()
@@ -814,11 +827,11 @@ def main():
         #Checks what game is being played
         if game.options.game_type == GameType.AttackerVsDefender:
             game.human_turn()
-        elif game.options.game_type == GameType.AttackerVsComp and game.next_player == Player.Attacker:
+        elif (game.options.game_type == GameType.AttackerVsComp) and (game.next_player == Player.Attacker):
             game.human_turn()
-        elif game.options.game_type == GameType.CompVsDefender and game.next_player == Player.Defender:
+        elif (game.options.game_type == GameType.CompVsDefender) and (game.next_player == Player.Defender):
             game.human_turn()
-        else:
+        elif (game.options.game_type == GameType.CompVsComp):
             player = game.next_player
             move = game.computer_turn()
             if move is not None:
