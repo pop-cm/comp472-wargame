@@ -638,25 +638,25 @@ class Game:
     #Return should be: return (heuristic_score, move, avg_depth)
     #Fab's part
     def random_move(self, current_game, depth, maximize) -> Tuple[int, CoordPair | None, float]:
-        move_candidates = list(self.generate_valid_moves())
+        move_candidates = list(current_game.generate_valid_moves())
 
-        if self.is_finished():
-            return (current_game.e0(), None, 0)   
+        if (self.is_finished()) or (depth == 0):
+            return (current_game.e0(), None, depth)   
         
         #Attacker is the max
-        if (maximize) and (depth > 0):
+        if maximize:
             max_eval = -float('inf')
             best_move = None
 
             #test
-            print(len(current_game.generate_valid_moves()))
+            print("Tree depth: " + str(len(current_game.generate_valid_moves())))
 
             for move in move_candidates:
                 game_clone = current_game.clone()
                 game_clone.perform_move(move)
                 #The , _ means only take the first return value
                 if (current_game.random_move(game_clone, depth - 1, False)) is not None:
-                    eval, _ = current_game.random_move(game_clone, depth - 1, False)
+                    eval, _, _ = current_game.random_move(game_clone, depth - 1, False)
                 else:
                     eval = -9999
 
@@ -666,14 +666,18 @@ class Game:
             return (max_eval, best_move, depth)
         
         #Defender (minimizing player)
-        elif (maximize == False) and (depth > 0):
+        elif maximize == False:
             min_eval = float('inf')
             best_move = None
+
+            #test
+            print(len(move_candidates))
+
             for move in move_candidates:
                 game_clone = current_game.clone()
                 game_clone.perform_move(move)
                 if (current_game.random_move(game_clone, depth - 1, True)) is not None:
-                    eval, _ = current_game.random_move(game_clone, depth - 1, True)
+                    eval, _, _ = current_game.random_move(game_clone, depth - 1, True)
                 else:
                     eval = 9999
 
@@ -682,12 +686,7 @@ class Game:
                     best_move = move
             return (min_eval, best_move, depth)
 
-        #Original random_move()
-        #random.shuffle(move_candidates)
-        #if len(move_candidates) > 0:
-        #    return (0, move_candidates[0], 1)
-        #else:
-        #    return (0, None, 0)
+
 
 
 
@@ -702,7 +701,10 @@ class Game:
             maximize = False
 
 
-        (score, move, avg_depth) = self.random_move(self.clone(), maximize, 1)
+        (score, move, avg_depth) = self.random_move(self.clone(), maximize, 5)
+
+        #test
+        print(move)
 
         elapsed_seconds = (datetime.now() - start_time).total_seconds()
         self.stats.total_seconds += elapsed_seconds
