@@ -335,7 +335,7 @@ class Game:
 
         # Check self-destruct
         # Check if the source and destination coordinates are the same
-        if coords.src == coords.dst:
+        if (coords.src == coords.dst):
             return True
         
         #Check for attacking
@@ -565,13 +565,15 @@ class Game:
         """Check if the game is over and returns winner"""
         if self.options.max_turns is not None and self.turns_played >= self.options.max_turns:
             return Player.Defender
-        elif self._attacker_has_ai:
+        if self._attacker_has_ai:
             if self._defender_has_ai:
                 return None
             else:
                 return Player.Attacker    
-        elif self._defender_has_ai:
-            return Player.Defender
+        return Player.Defender
+
+
+
 
     def move_candidates(self) -> Iterable[CoordPair]:
         """Generate valid move candidates for the next player."""
@@ -638,7 +640,8 @@ class Game:
     #Return should be: return (heuristic_score, move, avg_depth)
     #Fab's part
     def random_move(self, current_game, depth, maximize) -> Tuple[int, CoordPair | None, float]:
-        move_candidates = list(current_game.generate_valid_moves())
+        move_candidates = current_game.generate_valid_moves()
+        
 
         if (self.is_finished()) or (depth == 0):
             return (current_game.e0(), None, depth)   
@@ -666,7 +669,7 @@ class Game:
             return (max_eval, best_move, depth)
         
         #Defender (minimizing player)
-        elif maximize == False:
+        else:
             min_eval = float('inf')
             best_move = None
 
@@ -829,11 +832,33 @@ def main():
         #Checks what game is being played
         if game.options.game_type == GameType.AttackerVsDefender:
             game.human_turn()
-        elif (game.options.game_type == GameType.AttackerVsComp) and (game.next_player == Player.Attacker):
+
+        #Human attacker, AI defender
+        if (game.options.game_type == GameType.AttackerVsComp) and (game.next_player == Player.Attacker):
             game.human_turn()
-        elif (game.options.game_type == GameType.CompVsDefender) and (game.next_player == Player.Defender):
+        elif (game.options.game_type == GameType.AttackerVsComp) and (game.next_player == Player.Defender):
+            player = game.next_player
+            move = game.computer_turn()
+            if move is not None:
+                game.post_move_to_broker(move)
+            else:
+                print("Computer doesn't know what to do!!!")
+                exit(1)
+
+        #Human defender AI attacker
+        if (game.options.game_type == GameType.CompVsDefender) and (game.next_player == Player.Defender):
             game.human_turn()
-        elif (game.options.game_type == GameType.CompVsComp):
+        elif (game.options.game_type == GameType.CompVsDefender) and (game.next_player == Player.Attacker):
+            player = game.next_player
+            move = game.computer_turn()
+            if move is not None:
+                game.post_move_to_broker(move)
+            else:
+                print("Computer doesn't know what to do!!!")
+                exit(1)
+
+        #AI vs AI
+        if (game.options.game_type == GameType.CompVsComp):
             player = game.next_player
             move = game.computer_turn()
             if move is not None:
