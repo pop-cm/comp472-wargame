@@ -220,7 +220,7 @@ class Options:
     dim: int = 5
     max_depth : int | None = 4
     min_depth : int | None = 2
-    max_time : float | None = 20.0
+    max_time : float | None = 5.0
     game_type : GameType = GameType.CompVsComp
     alpha_beta : bool = True
     max_turns : int | None = 100
@@ -651,8 +651,6 @@ class Game:
             max_eval = -float('inf')
             best_move = None
 
-            #test
-            print("Tree depth: " + str(len(current_game.generate_valid_moves())))
 
             for move in move_candidates:
                 game_clone = current_game.clone()
@@ -673,8 +671,6 @@ class Game:
             min_eval = float('inf')
             best_move = None
 
-            #test
-            print(len(move_candidates))
 
             for move in move_candidates:
                 game_clone = current_game.clone()
@@ -704,7 +700,7 @@ class Game:
             maximize = False
 
 
-        (score, move, avg_depth) = self.random_move(self.clone(), maximize, 5)
+        (score, move, avg_depth) = self.random_move(self.clone(), 3, maximize)
 
         #test
         print(move)
