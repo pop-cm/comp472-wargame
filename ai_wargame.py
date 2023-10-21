@@ -656,10 +656,8 @@ class Game:
                 game_clone = current_game.clone()
                 game_clone.perform_move(move)
                 #The , _ means only take the first return value
-                if (current_game.random_move(game_clone, depth - 1, False)) is not None:
-                    eval, _, _ = current_game.random_move(game_clone, depth - 1, False)
-                else:
-                    eval = -9999
+                eval, _, _ = current_game.random_move(game_clone, depth - 1, False)
+
 
                 if eval > max_eval:
                     max_eval = eval
@@ -675,10 +673,8 @@ class Game:
             for move in move_candidates:
                 game_clone = current_game.clone()
                 game_clone.perform_move(move)
-                if (current_game.random_move(game_clone, depth - 1, True)) is not None:
-                    eval, _, _ = current_game.random_move(game_clone, depth - 1, True)
-                else:
-                    eval = 9999
+                eval, _, _ = current_game.random_move(game_clone, depth - 1, True)
+
 
                 if eval < min_eval:
                     min_eval = eval
@@ -700,7 +696,7 @@ class Game:
             maximize = False
 
 
-        (score, move, avg_depth) = self.random_move(self.clone(), 3, maximize)
+        (score, move, avg_depth) = self.random_move(self.clone(), 2, maximize)
 
         #test
         print(move)
