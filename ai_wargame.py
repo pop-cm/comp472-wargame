@@ -223,7 +223,7 @@ class Options:
     max_time : float | None = 5.0
     game_type : GameType = GameType.AttackerVsDefender
     alpha_beta : bool = True
-    max_turns : int | None = 100
+    max_turns : int | None = 10 ### 100
     randomize_moves : bool = True
     broker : str | None = None
 
@@ -560,13 +560,12 @@ class Game:
         """Check if the game is over and returns winner"""
         if self.options.max_turns is not None and self.turns_played >= self.options.max_turns:
             return Player.Defender
-        elif self._attacker_has_ai:
+        if self._attacker_has_ai:
             if self._defender_has_ai:
                 return None
             else:
                 return Player.Attacker    
-        elif self._defender_has_ai:
-            return Player.Defender
+        return Player.Defender
 
     def move_candidates(self) -> Iterable[CoordPair]:
         """Generate valid move candidates for the next player."""
@@ -580,6 +579,166 @@ class Game:
             move.dst = src
             yield move.clone()
 
+    #Fab's part
+    #Heuristic e0
+    def e0(self):
+        #Define values for each unit type (adjust these values as needed)
+        unit_values = {
+            UnitType.AI: 9999,
+            UnitType.Tech: 3,
+            UnitType.Virus: 3,
+            UnitType.Program: 3,
+            UnitType.Firewall: 3,
+        }
+
+        #Initialize counters for each player's pieces and piece type
+        player1_counts = {unit_type: 0 for unit_type in UnitType}
+        player2_counts = {unit_type: 0 for unit_type in UnitType}
+
+        #Count the number of each piece type for each player
+        for coord in CoordPair.from_dim(self.options.dim).iter_rectangle():
+            unit = self.get(coord)
+            if unit is not None:
+                if unit.player == Player.Attacker:
+                    player1_counts[unit.type] += 1
+                else:
+                    player2_counts[unit.type] += 1
+
+        e0_val = (
+            sum(unit_values[unit_type] * player1_counts[unit_type] for unit_type in UnitType) 
+            - sum(unit_values[unit_type] * player2_counts[unit_type] for unit_type in UnitType)
+        )
+
+        return e0_val
+    
+    #Sarah's part
+    #Heuristic e1
+    def e1(self):
+        #Define values for each unit type (adjust these values as needed)
+        unit_values = {
+            UnitType.AI: 9999,
+            UnitType.Tech: 100,
+            UnitType.Virus: 500,
+            UnitType.Program: 300,
+            UnitType.Firewall: 5,
+        }
+
+        #Initialize counters for each player's pieces and piece type
+        player1_counts = {unit_type: 0 for unit_type in UnitType}
+        player2_counts = {unit_type: 0 for unit_type in UnitType}
+
+        #Count the number of each piece type for each player
+        for coord in CoordPair.from_dim(self.options.dim).iter_rectangle():
+            unit = self.get(coord)
+            if unit is not None:
+                if unit.player == Player.Attacker:
+                    player1_counts[unit.type] += 1
+                else:
+                    player2_counts[unit.type] += 1
+
+        e1_val = (
+            sum(unit_values[unit_type] * player1_counts[unit_type] for unit_type in UnitType) 
+            - sum(unit_values[unit_type] * player2_counts[unit_type] for unit_type in UnitType)
+        )
+
+        return e1_val
+
+    #Fab's part
+    #Function to generate a list of all possible moves
+    def generate_valid_moves(self):
+        # This function generates all valid moves for the current player.
+        # It returns a list of CoordPair objects.
+        valid_moves = []
+        for move in self.move_candidates():
+            if self.is_valid_move(move):
+                valid_moves.append(move)
+        return valid_moves
+    
+    #Return should be: return (heuristic_score, move, avg_depth)
+    #Fab's part
+    def random_move(self, current_game, depth, maximize) -> Tuple[int, CoordPair | None, float]:
+        move_candidates = current_game.generate_valid_moves()
+        #random.shuffle(move_candidates)        
+
+        if (self.is_finished()) or (depth == 0):
+            return (current_game.e0(), None, depth)   
+        
+        #Attacker is the max
+        if maximize:
+            max_eval = -float('inf')
+            best_move = None
+
+            for move in move_candidates:
+                game_clone = current_game.clone()
+                game_clone.perform_move(move)
+                #The , _ means only take the first return value
+                eval, _, _ = current_game.random_move(game_clone, depth - 1, False)
+
+                if eval > max_eval:
+                    max_eval = eval
+                    best_move = move
+            return (max_eval, best_move, depth)
+        
+        #Defender (minimizing player)
+        else:
+            min_eval = float('inf')
+            best_move = None
+
+            for move in move_candidates:
+                game_clone = current_game.clone()
+                game_clone.perform_move(move)
+                eval, _, _ = current_game.random_move(game_clone, depth - 1, True)
+
+                if eval < min_eval:
+                    min_eval = eval
+                    best_move = move
+            return (min_eval, best_move, depth)
+        
+    #Sarah's part
+    def alphabeta(self, current_game,depth, alpha, beta, maximize) -> Tuple[int, CoordPair | None, float]:
+        move_candidates = current_game.generate_valid_moves() #list of potential moves
+        #random.shuffle(move_candidates)
+
+        if (self.is_finished()) or (depth == 0):
+            return (current_game.e0(), None, depth)
+        
+        #Attacker
+        if maximize:
+            max_eval = -float('inf')
+            best_move = None
+
+            for move in move_candidates:
+                game_clone = current_game.clone()
+                game_clone.perform_move(move)
+                eval, _, _ = current_game.alphabeta(game_clone, depth-1, alpha, beta, False)
+                print(" eval : ",eval)
+                max_eval = max(max_eval,eval)
+                alpha = max(alpha,max_eval)
+
+                if(max_eval >= beta):
+                    break
+                max_eval = eval
+                best_move = move
+            return (max_eval, best_move, depth)
+        
+        #Defender
+        else:
+            min_eval = float('inf')
+            best_move = None
+
+            for move in move_candidates:
+                game_clone = current_game.clone()
+                game_clone.perform_move(move)
+                eval, _, _ = current_game.alphabeta(game_clone, depth-1, alpha, beta, True)
+                min_eval = min(min_eval, eval)
+                beta = min(beta,min_eval)
+
+                if(min_eval <= alpha):
+                    break
+                min_eval = eval
+                best_move = move
+            return (min_eval, best_move, depth)
+    '''
     def random_move(self) -> Tuple[int, CoordPair | None, float]:
         """Returns a random move."""
         move_candidates = list(self.move_candidates())
@@ -588,15 +747,20 @@ class Game:
             return (0, move_candidates[0], 1)
         else:
             return (0, None, 0)
-
+    '''
     def suggest_move(self) -> CoordPair | None:
         """Suggest the next move using minimax alpha beta. TODO: REPLACE RANDOM_MOVE WITH PROPER GAME LOGIC!!!""" #########################################################
         start_time = datetime.now()
-        (score, move, avg_depth) = self.random_move()
+        if self.next_player == Player.Attacker:
+            maximize = True
+        else:
+            maximize = False
+        #(score, move, avg_depth) = self.random_move(self.clone(), 2, maximize)    #2
+        (score, move, avg_depth) = self.alphabeta(self.clone(), 2, MIN_HEURISTIC_SCORE, MAX_HEURISTIC_SCORE, maximize)    #2
+        print(move) #test
         elapsed_seconds = (datetime.now() - start_time).total_seconds()
         self.stats.total_seconds += elapsed_seconds
         print(f"Heuristic score: {score}")
-        print(f"Average recursive depth: {avg_depth:0.1f}")
         print(f"Evals per depth: ",end='')
         for k in sorted(self.stats.evaluations_per_depth.keys()):
             print(f"{k}:{self.stats.evaluations_per_depth[k]} ",end='')
@@ -668,7 +832,7 @@ def main():
         formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument('--max_depth', type=int, help='maximum search depth')
     parser.add_argument('--max_time', type=float, help='maximum search time')
-    parser.add_argument('--game_type', type=str, default="manual", help='game type: auto|attacker|defender|manual')
+    parser.add_argument('--game_type', type=str, default="auto", help='game type: auto|attacker|defender|manual')
     parser.add_argument('--broker', type=str, help='play via a game broker')
     parser.add_argument('--max_turns', type=int, help='maximum number of moves/turns')
     args = parser.parse_args()
