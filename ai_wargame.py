@@ -668,13 +668,20 @@ class Game:
         e2_val = 0
 
         # Calculate heuristic based on the total health of the player's units
+        # Give more importance to the AI's health
         for coord in CoordPair.from_dim(self.options.dim).iter_rectangle():
             unit = self.get(coord)
             if unit is not None:
                 if unit.player == Player.Attacker:
-                    e2_val += unit.health
+                    if unit.type == UnitType.AI:
+                        e2_val += unit.health * 9999
+                    else:
+                        e2_val += unit.health
                 else:
-                    e2_val -= unit.health
+                    if unit.type == UnitType.AI:
+                        e2_val -= unit.health * 9999
+                    else:
+                        e2_val -= unit.health
 
         return e2_val
 
