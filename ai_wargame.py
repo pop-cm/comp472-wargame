@@ -639,20 +639,19 @@ class Game:
 
     #Return should be: return (heuristic_score, move, avg_depth)
     #Fab's part
-    def random_move(self, current_game, depth, maximize) -> Tuple[int, CoordPair | None, float]:
-        move_candidates = current_game.generate_valid_moves()
-        
+    def random_move(self, current_game, depth, maximize) -> Tuple[int, CoordPair | None, float]:        
 
         if (self.is_finished()) or (depth == 0):
             return (current_game.e0(), None, depth)   
         
         #Attacker is the max
         if maximize:
+            current_game.next_player = Player.Attacker
             max_eval = -float('inf')
             best_move = None
 
 
-            for move in move_candidates:
+            for move in (current_game.generate_valid_moves()):
                 game_clone = current_game.clone()
                 game_clone.perform_move(move)
                 #The , _ means only take the first return value
@@ -666,11 +665,12 @@ class Game:
         
         #Defender (minimizing player)
         else:
+            current_game.next_player = Player.Defender
             min_eval = float('inf')
             best_move = None
 
 
-            for move in move_candidates:
+            for move in (current_game.generate_valid_moves()):
                 game_clone = current_game.clone()
                 game_clone.perform_move(move)
                 eval, _, _ = current_game.random_move(game_clone, depth - 1, True)
