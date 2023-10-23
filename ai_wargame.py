@@ -285,8 +285,8 @@ class Game:
         self.file.write(f"The value of the timeout is {self.options.max_time}s\n")
         self.file.write(f"The max number of turns is {self.options.max_turns}\n")
         self.file.write(f"The alpha-beta is {self.options.alpha_beta}\n")
-        self.file.write(f"Play mode is {self.options.game_type}\n")
-        self.file.write(f"Heuristic is {self.options.heuristic}\n")
+        self.file.write(f"The play mode is {self.options.game_type}\n")
+        self.file.write(f"The name of the heuristic is {self.options.heuristic}\n")
         self.file.write("--------------------------------------------------\n\n")
 
     def clone(self) -> Game:
@@ -535,11 +535,13 @@ class Game:
                 if success:
                     print(f"Player {self.next_player.name}: ",end='')
                     print(result)
+                    self.file.write(f"Player {self.next_player.name}: ")
                     self.file.write(result + "\n")
                     self.next_turn()
                     break
                 else:
                     print("The move is not valid! Try again.")
+                    self.file.write("The move is not valid! Try again.\n")
 
     def computer_turn(self) -> CoordPair | None:
         """Computer plays a move."""
@@ -549,6 +551,8 @@ class Game:
             if success:
                 print(f"Computer {self.next_player.name}: ",end='')
                 print(result)
+                self.file.write(f"Computer {self.next_player.name}: ")
+                self.file.write(result + "\n")
                 self.next_turn()
         return mv
 
@@ -814,16 +818,23 @@ class Game:
         total_evals = sum(self.stats.evaluations_per_depth.values())
 
         print(f"Heuristic score: {score}")
+        self.file.write(f"Heuristic score: {score}\n")
         print(f"Cumulative evals: {total_evals}")
+        self.file.write(f"Cumulative evals: {total_evals}\n")
         print(f"Cumulative % evals by depth: ",end='')
+        self.file.write(f"Cumulative % evals by depth: ")
         for k in sorted(self.stats.evaluations_per_depth.keys()):
             print(f"{k}={self.stats.evaluations_per_depth[k]/total_evals*100:0.1f}% ",end='')
+            self.file.write(f"{k}={self.stats.evaluations_per_depth[k]/total_evals*100:0.1f}% ")
         print()
         print(f"Cumulative evals per depth: ",end='')
+        self.file.write(f"\nCumulative evals per depth: ")
         for k in sorted(self.stats.evaluations_per_depth.keys()):
             print(f"{k}={self.stats.evaluations_per_depth[k]} ",end='')
+            self.file.write(f"{k}={self.stats.evaluations_per_depth[k]} ")
         print()
         print(f"Elapsed time: {elapsed_seconds:0.1f}s")
+        self.file.write(f"\nElapsed time: {elapsed_seconds:0.1f}s\n")
 
         return move
 
