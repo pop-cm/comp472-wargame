@@ -286,6 +286,7 @@ class Game:
         self.file.write(f"The max number of turns is {self.options.max_turns}\n")
         self.file.write(f"The alpha-beta is {self.options.alpha_beta}\n")
         self.file.write(f"Play mode is {self.options.game_type}\n")
+        self.file.write(f"Heuristic is {self.options.heuristic}\n")
         self.file.write("--------------------------------------------------\n\n")
 
     def clone(self) -> Game:
@@ -660,7 +661,19 @@ class Game:
         return e1_val
 
     def e2(self):
-        return 0
+        e2_val = 0
+
+        # Calculate heuristic based on the total health of the player's units
+        for coord in CoordPair.from_dim(self.options.dim).iter_rectangle():
+            unit = self.get(coord)
+            if unit is not None:
+                if unit.player == Player.Attacker:
+                    e2_val += unit.health
+                else:
+                    e2_val -= unit.health
+
+        return e2_val
+
 
     #Fab's part
     #Function to generate a list of all possible moves
