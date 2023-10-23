@@ -692,7 +692,8 @@ class Game:
     
     #Return should be: return (heuristic_score, move, avg_depth)
     #Fab's part
-    def random_move(self, current_game, depth, maximize, current_depth = 0) -> Tuple[int, CoordPair | None, float]:
+    def random_move(self, current_game, depth, maximize, start_time, current_depth = 0) -> Tuple[int, CoordPair | None, float]:
+        elapsed_seconds = (datetime.now() - start_time).total_seconds()
 
         # Keep track of the num of evaluations at each depth level
         current_depth += 1
@@ -701,8 +702,9 @@ class Game:
         else:
             self.stats.evaluations_per_depth[current_depth] = 1
 
+        elapsed_seconds = (datetime.now() - start_time).total_seconds()
 
-        if (self.is_finished()) or (depth == 0):
+        if (self.is_finished()) or (depth == 0) or elapsed_seconds >= self.options.max_time - 0.01:
             return (current_game.e(), None, depth)
         
         #Attacker is the max
@@ -715,7 +717,7 @@ class Game:
                 game_clone = current_game.clone()
                 game_clone.perform_move(move)
                 #The , _ means only take the first return value
-                eval, _, _ = current_game.random_move(game_clone, depth - 1, False, current_depth)
+                eval, _, _ = current_game.random_move(game_clone, depth - 1, False, start_time, current_depth)
 
                 if eval > max_eval:
                     max_eval = eval
@@ -731,7 +733,7 @@ class Game:
             for move in (current_game.generate_valid_moves()):
                 game_clone = current_game.clone()
                 game_clone.perform_move(move)
-                eval, _, _ = current_game.random_move(game_clone, depth - 1, True, current_depth)
+                eval, _, _ = current_game.random_move(game_clone, depth - 1, True, start_time, current_depth)
 
                 if eval < min_eval:
                     min_eval = eval
@@ -742,7 +744,7 @@ class Game:
 
 
     #Sarah's part
-    def alphabeta(self, current_game, depth, alpha, beta, maximize, current_depth = 0) -> Tuple[int, CoordPair | None, float]:
+    def alphabeta(self, current_game, depth, alpha, beta, maximize, start_time, current_depth = 0) -> Tuple[int, CoordPair | None, float]:
 
         # Keep track of the num of evaluations at each depth level
         current_depth += 1
@@ -751,7 +753,9 @@ class Game:
         else:
             self.stats.evaluations_per_depth[current_depth] = 1
 
-        if (self.is_finished()) or (depth == 0):
+        elapsed_seconds = (datetime.now() - start_time).total_seconds()
+
+        if (self.is_finished()) or (depth == 0) or elapsed_seconds >= self.options.max_time - 0.01:
             return (current_game.e(), None, depth)
         
         #Attacker
@@ -763,7 +767,7 @@ class Game:
             for move in (current_game.generate_valid_moves()):
                 game_clone = current_game.clone()
                 game_clone.perform_move(move)
-                eval, _, _ = current_game.alphabeta(game_clone, depth-1, alpha, beta, False, current_depth)
+                eval, _, _ = current_game.alphabeta(game_clone, depth-1, alpha, beta, False, start_time, current_depth)
                 if eval > max_eval:
                     max_eval = eval
                     best_move = move
@@ -784,7 +788,7 @@ class Game:
             for move in (current_game.generate_valid_moves()):
                 game_clone = current_game.clone()
                 game_clone.perform_move(move)
-                eval, _, _ = current_game.alphabeta(game_clone, depth-1, alpha, beta, True, current_depth)
+                eval, _, _ = current_game.alphabeta(game_clone, depth-1, alpha, beta, True, start_time, current_depth)
                 if eval < min_eval:
                     min_eval = eval
                     best_move = move
@@ -807,11 +811,9 @@ class Game:
 
         #Check if we are playing using alpha-beta
         if self.options.alpha_beta == False:
-            (score, move, avg_depth) = self.random_move(self.clone(), 2, maximize)
+            (score, move, avg_depth) = self.random_move(self.clone(), 6, maximize, start_time)
         else:
-            (score, move, avg_depth) = self.alphabeta(self.clone(), 10, MIN_HEURISTIC_SCORE, MAX_HEURISTIC_SCORE, maximize)
-
-        print(move) #test
+            (score, move, avg_depth) = self.alphabeta(self.clone(), 10, MIN_HEURISTIC_SCORE, MAX_HEURISTIC_SCORE, maximize, start_time)
 
         elapsed_seconds = (datetime.now() - start_time).total_seconds()
         self.stats.total_seconds += elapsed_seconds
