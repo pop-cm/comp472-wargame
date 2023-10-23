@@ -618,10 +618,10 @@ class Game:
         #Define values for each unit type (adjust these values as needed)
         unit_values = {
             UnitType.AI: 9999,
-            UnitType.Tech: 100,
+            UnitType.Tech: 500,
             UnitType.Virus: 500,
             UnitType.Program: 300,
-            UnitType.Firewall: 5,
+            UnitType.Firewall: 50,
         }
 
         #Initialize counters for each player's pieces and piece type
@@ -739,35 +739,30 @@ class Game:
                     min_eval = eval
                     best_move = move
 
-
                 beta = min(beta,min_eval)
 
                 if(min_eval <= alpha):
                     break
             return (min_eval, best_move, depth)
-    '''
-    def random_move(self) -> Tuple[int, CoordPair | None, float]:
-        """Returns a random move."""
-        move_candidates = list(self.move_candidates())
-        random.shuffle(move_candidates)
-        if len(move_candidates) > 0:
-            return (0, move_candidates[0], 1)
-        else:
-            return (0, None, 0)
-    '''
+
     def suggest_move(self) -> CoordPair | None:
         """Suggest the next move using minimax alpha beta. TODO: REPLACE RANDOM_MOVE WITH PROPER GAME LOGIC!!!""" #########################################################
         start_time = datetime.now()
+        
+        #Set boolean for maximize depending on player
         if self.next_player == Player.Attacker:
             maximize = True
         else:
             maximize = False
-        #(score, move, avg_depth) = self.random_move(self.clone(), 2, maximize)    #2
-        (score, move, avg_depth) = self.alphabeta(self.clone(), 5, MIN_HEURISTIC_SCORE, MAX_HEURISTIC_SCORE, maximize)    #2
+
+        #Check if we are playing using alpha-beta
+        if self.options.alpha_beta == False:
+            (score, move, avg_depth) = self.random_move(self.clone(), 2, maximize)
+        else:
+            (score, move, avg_depth) = self.alphabeta(self.clone(), 10, MIN_HEURISTIC_SCORE, MAX_HEURISTIC_SCORE, maximize)
 
         print("The move score is: ", score)
         print(move) #test
-
 
         elapsed_seconds = (datetime.now() - start_time).total_seconds()
         self.stats.total_seconds += elapsed_seconds
