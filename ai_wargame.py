@@ -39,6 +39,11 @@ class GameType(Enum):
     CompVsDefender = 2
     CompVsComp = 3
 
+class Heuristic(Enum):
+    E0 = 0
+    E1 = 1
+    E2 = 2
+
 ##############################################################################################################
 
 @dataclass(slots=True)
@@ -226,6 +231,7 @@ class Options:
     max_turns : int | None = 100
     randomize_moves : bool = True
     broker : str | None = None
+    heuristic : Heuristic = Heuristic.E0
 
 ##############################################################################################################
 
@@ -579,6 +585,15 @@ class Game:
             move.dst = src
             yield move.clone()
 
+    def e(self):
+        # Use the heuristic corresponding to the selected option
+        if self.options.heuristic == Heuristic.E1:
+            return self.e1()
+        elif self.options.heuristic == Heuristic.E2:
+            return self.e2()
+        else:
+            return self.e0()
+
     #Fab's part
     #Heuristic e0
     def e0(self):
@@ -644,6 +659,9 @@ class Game:
 
         return e1_val
 
+    def e2(self):
+        return 0
+
     #Fab's part
     #Function to generate a list of all possible moves
     def generate_valid_moves(self):
@@ -660,7 +678,7 @@ class Game:
     def random_move(self, current_game, depth, maximize) -> Tuple[int, CoordPair | None, float]:
 
         if (self.is_finished()) or (depth == 0):
-            return (current_game.e0(), None, depth)   
+            return (current_game.e(), None, depth)
         
         #Attacker is the max
         if maximize:
@@ -702,7 +720,7 @@ class Game:
     def alphabeta(self, current_game,depth, alpha, beta, maximize) -> Tuple[int, CoordPair | None, float]:
 
         if (self.is_finished()) or (depth == 0):
-            return (current_game.e0(), None, depth)
+            return (current_game.e(), None, depth)
         
         #Attacker
         if maximize:
@@ -841,6 +859,7 @@ def main():
     parser.add_argument('--game_type', type=str, default="auto", help='game type: auto|attacker|defender|manual')
     parser.add_argument('--broker', type=str, help='play via a game broker')
     parser.add_argument('--max_turns', type=int, help='maximum number of moves/turns')
+    parser.add_argument('--e', type=int, help='heuristic number: 0|1|2')
     args = parser.parse_args()
 
     # parse the game type
@@ -865,6 +884,8 @@ def main():
         options.broker = args.broker
     if args.max_turns is not None:
         options.max_turns = args.max_turns
+    if args.e is not None:
+        options.heuristic = Heuristic(args.e)
 
     # create a new game
     game = Game(options=options)
