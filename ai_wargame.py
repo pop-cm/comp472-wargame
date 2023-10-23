@@ -675,7 +675,15 @@ class Game:
     
     #Return should be: return (heuristic_score, move, avg_depth)
     #Fab's part
-    def random_move(self, current_game, depth, maximize) -> Tuple[int, CoordPair | None, float]:
+    def random_move(self, current_game, depth, maximize, current_depth = 0) -> Tuple[int, CoordPair | None, float]:
+
+        # Keep track of the num of evaluations at each depth level
+        current_depth += 1
+        if current_depth in self.stats.evaluations_per_depth:
+            self.stats.evaluations_per_depth[current_depth] += 1
+        else:
+            self.stats.evaluations_per_depth[current_depth] = 1
+
 
         if (self.is_finished()) or (depth == 0):
             return (current_game.e(), None, depth)
@@ -690,7 +698,7 @@ class Game:
                 game_clone = current_game.clone()
                 game_clone.perform_move(move)
                 #The , _ means only take the first return value
-                eval, _, _ = current_game.random_move(game_clone, depth - 1, False)
+                eval, _, _ = current_game.random_move(game_clone, depth - 1, False, current_depth)
 
                 if eval > max_eval:
                     max_eval = eval
@@ -706,7 +714,7 @@ class Game:
             for move in (current_game.generate_valid_moves()):
                 game_clone = current_game.clone()
                 game_clone.perform_move(move)
-                eval, _, _ = current_game.random_move(game_clone, depth - 1, True)
+                eval, _, _ = current_game.random_move(game_clone, depth - 1, True, current_depth)
 
                 if eval < min_eval:
                     min_eval = eval
@@ -717,7 +725,14 @@ class Game:
 
 
     #Sarah's part
-    def alphabeta(self, current_game,depth, alpha, beta, maximize) -> Tuple[int, CoordPair | None, float]:
+    def alphabeta(self, current_game, depth, alpha, beta, maximize, current_depth = 0) -> Tuple[int, CoordPair | None, float]:
+
+        # Keep track of the num of evaluations at each depth level
+        current_depth += 1
+        if current_depth in self.stats.evaluations_per_depth:
+            self.stats.evaluations_per_depth[current_depth] += 1
+        else:
+            self.stats.evaluations_per_depth[current_depth] = 1
 
         if (self.is_finished()) or (depth == 0):
             return (current_game.e(), None, depth)
@@ -731,7 +746,7 @@ class Game:
             for move in (current_game.generate_valid_moves()):
                 game_clone = current_game.clone()
                 game_clone.perform_move(move)
-                eval, _, _ = current_game.alphabeta(game_clone, depth-1, alpha, beta, False)
+                eval, _, _ = current_game.alphabeta(game_clone, depth-1, alpha, beta, False, current_depth)
                 if eval > max_eval:
                     max_eval = eval
                     best_move = move
@@ -752,7 +767,7 @@ class Game:
             for move in (current_game.generate_valid_moves()):
                 game_clone = current_game.clone()
                 game_clone.perform_move(move)
-                eval, _, _ = current_game.alphabeta(game_clone, depth-1, alpha, beta, True)
+                eval, _, _ = current_game.alphabeta(game_clone, depth-1, alpha, beta, True, current_depth)
                 if eval < min_eval:
                     min_eval = eval
                     best_move = move
@@ -779,20 +794,24 @@ class Game:
         else:
             (score, move, avg_depth) = self.alphabeta(self.clone(), 10, MIN_HEURISTIC_SCORE, MAX_HEURISTIC_SCORE, maximize)
 
-        print("The move score is: ", score)
         print(move) #test
 
         elapsed_seconds = (datetime.now() - start_time).total_seconds()
         self.stats.total_seconds += elapsed_seconds
-        print(f"Heuristic score: {score}")
-        print(f"Evals per depth: ",end='')
-        for k in sorted(self.stats.evaluations_per_depth.keys()):
-            print(f"{k}:{self.stats.evaluations_per_depth[k]} ",end='')
-        print()
         total_evals = sum(self.stats.evaluations_per_depth.values())
-        if self.stats.total_seconds > 0:
-            print(f"Eval perf.: {total_evals/self.stats.total_seconds/1000:0.1f}k/s")
+
+        print(f"Heuristic score: {score}")
+        print(f"Cumulative evals: {total_evals}")
+        print(f"Cumulative % evals by depth: ",end='')
+        for k in sorted(self.stats.evaluations_per_depth.keys()):
+            print(f"{k}={self.stats.evaluations_per_depth[k]/total_evals*100:0.1f}% ",end='')
+        print()
+        print(f"Cumulative evals per depth: ",end='')
+        for k in sorted(self.stats.evaluations_per_depth.keys()):
+            print(f"{k}={self.stats.evaluations_per_depth[k]} ",end='')
+        print()
         print(f"Elapsed time: {elapsed_seconds:0.1f}s")
+
         return move
 
     def post_move_to_broker(self, move: CoordPair):
